@@ -212,7 +212,7 @@ static inline void CLUBuildProgram(cl::Program & program,
     }
 }
 
-static inline void CLUEventPrintStats(const std::string & name,
+static inline double CLUEventPrintStats(const std::string & name,
                                       const cl::Event & event)
 {
     try {
@@ -225,91 +225,110 @@ static inline void CLUEventPrintStats(const std::string & name,
                   << std::fixed << std::setw(8) << std::setprecision(4)
                   << time << " ms"
                   << std::endl;
+        return time;
     } catch(cl::Error err) {
         CLUErrorPrint(err);
     }
+
+    return 0;
 }
 
-static inline void CLUWriteBufferCubeToVTK(const float * data,
-                                           const size_t size,
-                                           const size_t timestamp)
-{
-    std::ofstream vtk;
+// static inline void CLUPrintCubeInt3D(const int * data,
+//                                      const size_t size)
+// {
+//     for (size_t z = 0; z < size; ++z) {
+//         for (size_t y = 0; y < size; ++y) {
+//             for (size_t x = 0; x < size; ++x) {
+//                 const float val = data[x + (y * size) + (z * size * size)];
+//                 std::cout << val << " ";
+//             }
+//             std::cout << "\n";
+//         }
+//         std::cout << "\n";
+//     }
+//     std::cout << "\n";
+// }
 
-    std::stringstream filenameBuilder;
-    filenameBuilder << "/Volumes/RamDisk/rho." << timestamp << ".vti";
+// static inline void CLUWriteBufferCubeToVTK(const float * data,
+//                                            const size_t size,
+//                                            const size_t timestamp)
+// {
+//     std::ofstream vtk;
 
-    vtk.open(filenameBuilder.str());
+//     std::stringstream filenameBuilder;
+//     filenameBuilder << "/Volumes/RamDisk/rho." << timestamp << ".vti";
 
-    vtk << "<?xml version=\"1.0\"?>\n" 
-        << "<!-- openLBMflow v1.0.1, www.lbmflow.com -->\n" 
-        << "<VTKFile type=\"ImageData\" version=\"0.1\" byte_order=\"LittleEndian\">\n" 
-        << "  <ImageData WholeExtent=\"0 " << (size - 1) << " 0 " << (size - 1) << " 0 " << (size - 1) << "\" Origin=\"1 1 1\" Spacing=\"1 1 1\">\n"
-        << "  <Piece Extent=\"0 " << (size - 1) << " 0 " << (size - 1) << " 0 " << (size - 1) << "\">\n"
-        << "    <PointData Scalars=\"scalars\">\n" 
-        << "      <DataArray type=\"Float32\" Name=\"Density\" NumberOfComponents=\"1\" format=\"ascii\">\n";
+//     vtk.open(filenameBuilder.str());
 
-    for (size_t z = 0; z < size; ++z) {
-        for (size_t y = 0; y < size; ++y) {
-            for (size_t x = 0; x < size; ++x) {
-                const float val = data[x + (y * size) + (z * size * size)];
-                vtk << std::scientific << (isnan(val) ? 0.0f : val) << " ";
-            }
-            vtk << "\n";
-        }
-        vtk << "\n";
-    }
+//     vtk << "<?xml version=\"1.0\"?>\n" 
+//         << "<!-- openLBMflow v1.0.1, www.lbmflow.com -->\n" 
+//         << "<VTKFile type=\"ImageData\" version=\"0.1\" byte_order=\"LittleEndian\">\n" 
+//         << "  <ImageData WholeExtent=\"0 " << (size - 3) << " 0 " << (size - 3) << " 0 " << (size - 3) << "\" Origin=\"1 1 1\" Spacing=\"1 1 1\">\n"
+//         << "  <Piece Extent=\"0 " << (size - 3) << " 0 " << (size - 3) << " 0 " << (size - 3) << "\">\n"
+//         << "    <PointData Scalars=\"scalars\">\n" 
+//         << "      <DataArray type=\"Float32\" Name=\"Density\" NumberOfComponents=\"1\" format=\"ascii\">\n";
+
+//     for (size_t z = 1; z < size - 1; ++z) {
+//         for (size_t y = 1; y < size - 1; ++y) {
+//             for (size_t x = 1; x < size - 1; ++x) {
+//                 const float val = data[x + (y * size) + (z * size * size)];
+//                 vtk << std::scientific << (isnan(val) ? 0.0f : val) << " ";
+//             }
+//             vtk << "\n";
+//         }
+//         vtk << "\n";
+//     }
     
-    vtk << "      </DataArray>\n"
-        << "    </PointData>\n"
-        << "    <CellData>\n"
-        << "    </CellData>\n"
-        << "  </Piece>\n"
-        << "  </ImageData>\n"
-        << "</VTKFile>\n";
-    vtk.close();
-}
+//     vtk << "      </DataArray>\n"
+//         << "    </PointData>\n"
+//         << "    <CellData>\n"
+//         << "    </CellData>\n"
+//         << "  </Piece>\n"
+//         << "  </ImageData>\n"
+//         << "</VTKFile>\n";
+//     vtk.close();
+// }
 
-static inline void CLUWriteBufferCube3DToVTK(const float * data,
-                                             const size_t size,
-                                             const size_t timestamp)
-{
-    std::ofstream vtk;
+// static inline void CLUWriteBufferCube3DToVTK(const float * data,
+//                                              const size_t size,
+//                                              const size_t timestamp)
+// {
+//     std::ofstream vtk;
 
-    std::stringstream filenameBuilder;
-    filenameBuilder << "/Volumes/RamDisk/velocity." << timestamp << ".vti";
+//     std::stringstream filenameBuilder;
+//     filenameBuilder << "/Volumes/RamDisk/velocity." << timestamp << ".vti";
 
-    vtk.open(filenameBuilder.str());
+//     vtk.open(filenameBuilder.str());
 
-    vtk << "<?xml version=\"1.0\"?>\n" 
-        << "<!-- openLBMflow v1.0.1, www.lbmflow.com -->\n" 
-        << "<VTKFile type=\"ImageData\" version=\"0.1\" byte_order=\"LittleEndian\">\n" 
-        << "  <ImageData WholeExtent=\"0 " << (size - 1) << " 0 " << (size - 1) << " 0 " << (size - 1) << "\" Origin=\"0 0 0\" Spacing=\"1 1 1\">\n"
-        << "  <Piece Extent=\"0 " << (size - 1) << " 0 " << (size - 1) << " 0 " << (size - 1) << "\">\n"
-        << "    <PointData Scalars=\"scalars\">\n" 
-        << "      <DataArray type=\"Float32\" Name=\"Velocity\" NumberOfComponents=\"3\" format=\"ascii\">\n";
+//     vtk << "<?xml version=\"1.0\"?>\n" 
+//         << "<!-- openLBMflow v1.0.1, www.lbmflow.com -->\n" 
+//         << "<VTKFile type=\"ImageData\" version=\"0.1\" byte_order=\"LittleEndian\">\n" 
+//         << "  <ImageData WholeExtent=\"0 " << (size - 3) << " 0 " << (size - 3) << " 0 " << (size - 3) << "\" Origin=\"0 0 0\" Spacing=\"1 1 1\">\n"
+//         << "  <Piece Extent=\"0 " << (size - 3) << " 0 " << (size - 3) << " 0 " << (size - 3) << "\">\n"
+//         << "    <PointData Scalars=\"scalars\">\n" 
+//         << "      <DataArray type=\"Float32\" Name=\"Velocity\" NumberOfComponents=\"3\" format=\"ascii\">\n";
 
-    for (size_t z = 0; z < size; ++z) {
-        for (size_t y = 0; y < size; ++y) {
-            for (size_t x = 0; x < size; ++x) {
-                const float val0 = data[(x + (y * size) + (z * size * size)) * 4    ];
-                const float val1 = data[(x + (y * size) + (z * size * size)) * 4 + 1];
-                const float val2 = data[(x + (y * size) + (z * size * size)) * 4 + 2];
-                vtk << std::scientific << (isnan(val0) ? 0.0f : val0) << " "
-                    << std::scientific << (isnan(val1) ? 0.0f : val1) << " "
-                    << std::scientific << (isnan(val2) ? 0.0f : val2) << " ";
-            }
-            vtk << "\n";
-        }
-        vtk << "\n";
-    }
+//     for (size_t z = 1; z < (size - 1); ++z) {
+//         for (size_t y = 1; y < (size - 1); ++y) {
+//             for (size_t x = 1; x < (size - 1); ++x) {
+//                 const float val0 = data[(x + (y * size) + (z * size * size)) * 4    ];
+//                 const float val1 = data[(x + (y * size) + (z * size * size)) * 4 + 1];
+//                 const float val2 = data[(x + (y * size) + (z * size * size)) * 4 + 2];
+//                 vtk << std::scientific << (isnan(val0) ? 0.0f : val0) << " "
+//                     << std::scientific << (isnan(val1) ? 0.0f : val1) << " "
+//                     << std::scientific << (isnan(val2) ? 0.0f : val2) << " ";
+//             }
+//             vtk << "\n";
+//         }
+//         vtk << "\n";
+//     }
     
-    vtk << "      </DataArray>\n"
-        << "    </PointData>\n"
-        << "    <CellData>\n"
-        << "    </CellData>\n"
-        << "  </Piece>\n"
-        << "  </ImageData>\n"
-        << "</VTKFile>\n";
-    vtk.close();
-}
+//     vtk << "      </DataArray>\n"
+//         << "    </PointData>\n"
+//         << "    <CellData>\n"
+//         << "    </CellData>\n"
+//         << "  </Piece>\n"
+//         << "  </ImageData>\n"
+//         << "</VTKFile>\n";
+//     vtk.close();
+// }

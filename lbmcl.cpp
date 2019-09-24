@@ -1,91 +1,163 @@
 #include <cstdio>
+#include <cmath>
 #include <string>
 #include <iostream>
+#include <iomanip>
 #include <fstream>
 #include <sstream>
 
 #include "CLUtil.hpp"
 
-#define LATTICE_DIM (32)
+#define LATTICE_DIM (8)
 #define LATTICE_SIZE ((LATTICE_DIM) * (LATTICE_DIM) * (LATTICE_DIM))
 
 
-float rhoData[LATTICE_DIM * LATTICE_DIM * LATTICE_DIM] = {1.0f};
-float velData[LATTICE_DIM * LATTICE_DIM * LATTICE_DIM * 4] = {1.0f};
+const size_t f_size = LATTICE_SIZE * 19 * sizeof(float);
+const size_t rho_size = LATTICE_SIZE * sizeof(float);
+const size_t type_size = LATTICE_SIZE * sizeof(int);
+const size_t u_size = LATTICE_SIZE * 3 * sizeof(float);
+
+float rhoData[LATTICE_SIZE] = {-1.0f};
+float velData[LATTICE_SIZE * 3] = {-1.0f};
+int mapData[LATTICE_SIZE] = {-1};
+
+
 size_t timestamp = 0;
+double totalTime = 0.0f;
+
+
+
+static void storeData()
+{
+    std::ofstream vtk;
+
+    std::stringstream filenameBuilder;
+    filenameBuilder << "/Volumes/RamDisk/lbmcl." << std::setw(2) << std::setfill('0') << timestamp << ".vti";
+
+    vtk.open(filenameBuilder.str());
+
+    vtk << "<?xml version=\"1.0\"?>\n" 
+        << "<VTKFile type=\"ImageData\" version=\"0.1\" byte_order=\"LittleEndian\">\n" 
+        << "  <ImageData WholeExtent=\"0 " << (LATTICE_DIM - 3) << " 0 " << (LATTICE_DIM - 3) << " 0 " << (LATTICE_DIM - 3) << "\" Origin=\"0 0 0\" Spacing=\"1 1 1\">\n"
+        << "    <Piece Extent=\"0 " << (LATTICE_DIM - 3) << " 0 " << (LATTICE_DIM - 3) << " 0 " << (LATTICE_DIM - 3) << "\">\n"
+        << "      <PointData Scalars=\"scalars\">\n"
+        << "        <DataArray type=\"Float32\" Name=\"rho\" NumberOfComponents=\"1\" format=\"ascii\">\n";
+
+    for (size_t z = 1; z < LATTICE_DIM - 1; ++z) {
+        for (size_t y = 1; y < LATTICE_DIM - 1; ++y) {
+            for (size_t x = 1; x < LATTICE_DIM - 1; ++x) {
+                const float val = rhoData[x + (y * LATTICE_DIM) + (z * LATTICE_DIM * LATTICE_DIM)];
+                vtk << std::scientific << (fabs(val) < 1e-6 ? 0.0f : val) << " ";
+                // vtk << std::scientific << val << " ";
+            }
+            vtk << "\n";
+        }
+        vtk << "\n";
+    }
+    
+    vtk << "        </DataArray>\n"
+        << "        <DataArray type=\"Float32\" Name=\"v\" NumberOfComponents=\"3\" format=\"ascii\">\n";
+
+    for (size_t z = 1; z < (LATTICE_DIM - 1); ++z) {
+        for (size_t y = 1; y < (LATTICE_DIM - 1); ++y) {
+            for (size_t x = 1; x < (LATTICE_DIM - 1); ++x) {
+                const float val0 = velData[(x + (y * LATTICE_DIM) + (z * LATTICE_DIM * LATTICE_DIM)) * 3 + 0];
+                const float val1 = velData[(x + (y * LATTICE_DIM) + (z * LATTICE_DIM * LATTICE_DIM)) * 3 + 1];
+                const float val2 = velData[(x + (y * LATTICE_DIM) + (z * LATTICE_DIM * LATTICE_DIM)) * 3 + 2];
+                vtk << std::scientific << (fabs(val0) < 1e-6 ? 0.0f : val0) << " "
+                    << std::scientific << (fabs(val1) < 1e-6 ? 0.0f : val1) << " "
+                    << std::scientific << (fabs(val2) < 1e-6 ? 0.0f : val2) << " ";
+                // vtk << std::scientific << val0 << " "
+                //     << std::scientific << val1 << " "
+                //     << std::scientific << val2 << " ";
+            }
+            vtk << "\n";
+        }
+        vtk << "\n";
+    }
+    
+    vtk << "        </DataArray>\n"
+        << "      </PointData>\n"
+        << "    </Piece>\n"
+        << "  </ImageData>\n"
+        << "</VTKFile>\n";
+    vtk.close();
+}
+
+
+static void dumpAndStoreData(const cl::CommandQueue & queue,
+                             const cl::Kernel & aggregateData,
+                             cl::Buffer & rho,
+                             cl::Buffer & u)
+{
+    cl::Event event_aggregateData;
+    cl::Event event_read_rho;
+    cl::Event event_read_u;
+
+    cl::NDRange gws = cl::NDRange(LATTICE_DIM, LATTICE_DIM, LATTICE_DIM);
+    try {
+        CLUCheckError(
+            queue.enqueueNDRangeKernel(aggregateData, cl::NullRange, gws, cl::NullRange, NULL, &event_aggregateData),
+            "aggregateData",
+            true
+        );
+        totalTime += CLUEventPrintStats(" aggregateData", event_aggregateData);
+
+
+        CLUCheckError(
+            queue.enqueueReadBuffer(rho, CL_TRUE, 0, rho_size, rhoData, NULL, &event_read_rho),
+            "readRho",
+            true
+        );
+        totalTime += CLUEventPrintStats("       readRho", event_read_rho);
+
+
+        CLUCheckError(
+            queue.enqueueReadBuffer(u, CL_TRUE, 0, u_size, velData, NULL, &event_read_u),
+            "readU",
+            true
+        );
+        totalTime += CLUEventPrintStats("         readU", event_read_rho);
+
+        storeData();
+    } catch (cl::Error err) {
+        CLUErrorPrint(err, true);
+    }
+}
 
 
 static void processData(const cl::CommandQueue & queue,
-                        const cl::Kernel & streamingLBM,
-                        const cl::Kernel & collisionLBM,
-                        const cl::Kernel & updateBoundaryLBM,
-                        const cl::Kernel & aggregateDataLBM,
-                        cl::Buffer & rho,
-                        cl::Buffer & u,
-                        int printsEvery)
+                        const cl::Kernel & updateBoundary,
+                        const cl::Kernel & collision,
+                        const cl::Kernel & streaming)
 {
-    cl::NDRange lws = cl::NDRange(1, 1, 1);
     cl::NDRange gws = cl::NDRange(LATTICE_DIM, LATTICE_DIM, LATTICE_DIM);
 
     try {
-        cl::Event event_streamingLBM;
-        cl::Event event_collisionLBM;
-        cl::Event event_updateBoundaryLBM;
-        cl::Event event_aggregateDataLBM;
-        cl::Event event_read_rho;
-        cl::Event event_read_u;
-
+        cl::Event event_updateBoundary;
+        cl::Event event_collision;
+        cl::Event event_streaming;
 
         CLUCheckError(
-            queue.enqueueNDRangeKernel(streamingLBM, cl::NullRange, gws, lws, NULL, &event_streamingLBM),
-            "streamingLBM",
+            queue.enqueueNDRangeKernel(updateBoundary, cl::NullRange, gws, cl::NullRange, NULL, &event_updateBoundary),
+            "updateBoundary",
             true
         );
+        totalTime += CLUEventPrintStats("updateBoundary", event_updateBoundary);
 
         CLUCheckError(
-            queue.enqueueNDRangeKernel(collisionLBM, cl::NullRange, gws, lws, NULL, &event_collisionLBM),
-            "collisionLBM",
+            queue.enqueueNDRangeKernel(collision, cl::NullRange, gws, cl::NullRange, NULL, &event_collision),
+            "collision",
             true
         );
+        totalTime += CLUEventPrintStats("     collision", event_collision);
 
         CLUCheckError(
-            queue.enqueueNDRangeKernel(updateBoundaryLBM, cl::NullRange, gws, lws, NULL, &event_updateBoundaryLBM),
-            "updateBoundaryLBM",
+            queue.enqueueNDRangeKernel(streaming, cl::NullRange, gws, cl::NullRange, NULL, &event_streaming),
+            "streaming",
             true
         );
-
-
-        if ((timestamp % printsEvery) == 0) {
-            CLUCheckError(
-                queue.enqueueNDRangeKernel(aggregateDataLBM, cl::NullRange, gws, lws, NULL, &event_aggregateDataLBM),
-                "aggregateDataLBM",
-                true
-            );
-            CLUEventPrintStats(" aggregateDataLBM", event_aggregateDataLBM);
-
-
-            CLUCheckError(
-                queue.enqueueReadBuffer(rho, CL_TRUE, 0, LATTICE_SIZE * sizeof(float), rhoData, NULL, &event_read_rho),
-                "readRho",
-                true
-            );
-            CLUEventPrintStats("          readRho", event_read_rho);
-            CLUWriteBufferCubeToVTK(rhoData, LATTICE_DIM, timestamp);
-
-
-            CLUCheckError(
-                queue.enqueueReadBuffer(u, CL_TRUE, 0, LATTICE_SIZE * 4 * sizeof(float), velData, NULL, &event_read_u),
-                "readU",
-                true
-            );
-            CLUEventPrintStats("            readU", event_read_rho);
-            CLUWriteBufferCube3DToVTK(velData, LATTICE_DIM, timestamp);
-        }
-
-        CLUEventPrintStats("     streamingLBM", event_streamingLBM);
-        CLUEventPrintStats("     collisionLBM", event_collisionLBM);
-        CLUEventPrintStats("updateBoundaryLBM", event_updateBoundaryLBM);
-
+        totalTime += CLUEventPrintStats("     streaming", event_streaming);
 
     } catch (cl::Error err) {
         CLUErrorPrint(err, true);
@@ -124,28 +196,26 @@ int main(int argc, char * argv[])
 
     std::stringstream optionsBuilder;
     optionsBuilder << "-Werror ";
-    optionsBuilder << "-cl-single-precision-constant ";
+    // optionsBuilder << "-cl-single-precision-constant ";
+    optionsBuilder << "-cl-fast-relaxed-math ";
+    // optionsBuilder << "-cl-denorms-are-zero ";
     optionsBuilder << "-DDIM=" << LATTICE_DIM << " ";
     std::cout << "Kernels options: " << optionsBuilder.str() << std::endl;
 
     CLUBuildProgram(program, context, device, "kernels.cl", optionsBuilder.str());
 
-    cl::Kernel            initLBM(program, "init");
-    cl::Kernel      streamingLBM0(program, "streaming");
-    cl::Kernel      streamingLBM1(program, "streaming");
-    cl::Kernel      collisionLBM0(program, "collision");
-    cl::Kernel      collisionLBM1(program, "collision");
-    cl::Kernel updateBoundaryLBM0(program, "updateBoundary");
-    cl::Kernel updateBoundaryLBM1(program, "updateBoundary");
-    cl::Kernel  aggregateDataLBM0(program, "aggregateData");
-    cl::Kernel  aggregateDataLBM1(program, "aggregateData");
+    cl::Kernel             initLBM(program, "init");
+    cl::Kernel           streaming(program, "streaming");
+    cl::Kernel      streaming_swap(program, "streaming");
+    cl::Kernel           collision(program, "collision");
+    cl::Kernel      collision_swap(program, "collision");
+    cl::Kernel      updateBoundary(program, "boundaryConditions");
+    cl::Kernel updateBoundary_swap(program, "boundaryConditions");
+    cl::Kernel       aggregateData(program, "aggregateData");
+    cl::Kernel  aggregateData_swap(program, "aggregateData");
 
 
     cl_int err;
-    size_t f_size = LATTICE_SIZE * 19 * sizeof(float);
-    size_t rho_size = LATTICE_SIZE * sizeof(float);
-    size_t type_size = LATTICE_SIZE * sizeof(int);
-    size_t u_size = LATTICE_SIZE * 4 * sizeof(float);     // it is a float4
 
     cl::Buffer f_stream = cl::Buffer(context, CL_MEM_READ_WRITE | CL_MEM_HOST_NO_ACCESS, f_size, NULL, &err);
     CLUCheckError(err, "cl::Buffer(f_stream)", true);
@@ -156,7 +226,7 @@ int main(int argc, char * argv[])
     cl::Buffer rho = cl::Buffer(context, CL_MEM_READ_WRITE, rho_size, NULL, &err);
     CLUCheckError(err, "cl::Buffer(rho)", true);
 
-    cl::Buffer type = cl::Buffer(context, CL_MEM_READ_WRITE | CL_MEM_HOST_NO_ACCESS, type_size, NULL, &err);
+    cl::Buffer type = cl::Buffer(context, CL_MEM_READ_WRITE, type_size, NULL, &err);
     CLUCheckError(err, "cl::Buffer(type)", true);
 
     cl::Buffer u = cl::Buffer(context, CL_MEM_READ_WRITE, u_size, NULL, &err);
@@ -166,105 +236,87 @@ int main(int argc, char * argv[])
     try {
         initLBM.setArg(0, f_stream);
         initLBM.setArg(1, f_collide);
-        initLBM.setArg(2, rho);
-        initLBM.setArg(3, u);
-        initLBM.setArg(4, type);
+        initLBM.setArg(2, type);
+
 
         // 0
-        streamingLBM0.setArg(0, f_stream);
-        streamingLBM0.setArg(1, f_collide);
+        updateBoundary.setArg(0, f_collide);
+        updateBoundary.setArg(1, type);
         // 1
-        streamingLBM1.setArg(0, f_collide);
-        streamingLBM1.setArg(1, f_stream);
+        updateBoundary_swap.setArg(0, f_stream);
+        updateBoundary_swap.setArg(1, type);
 
-        // SWAP
-
-        // 0
-        collisionLBM0.setArg(0, f_stream);
-        // 1
-        collisionLBM1.setArg(0, f_collide);
 
         // 0
-        updateBoundaryLBM0.setArg(0, f_stream);
-        updateBoundaryLBM0.setArg(1, type);
+        collision.setArg(0, f_collide);
+        collision.setArg(1, type);
         // 1
-        updateBoundaryLBM1.setArg(0, f_collide);
-        updateBoundaryLBM1.setArg(1, type);
+        collision_swap.setArg(0, f_stream);
+        collision_swap.setArg(1, type);
 
         // 0
-        aggregateDataLBM0.setArg(0, rho);
-        aggregateDataLBM0.setArg(1, u);
-        aggregateDataLBM0.setArg(2, f_stream);
+        streaming.setArg(0, f_stream);
+        streaming.setArg(1, f_collide);
+        streaming.setArg(2, type);
         // 1
-        aggregateDataLBM1.setArg(0, rho);
-        aggregateDataLBM1.setArg(1, u);
-        aggregateDataLBM1.setArg(2, f_collide);
+        streaming_swap.setArg(0, f_collide);
+        streaming_swap.setArg(1, f_stream);
+        streaming_swap.setArg(2, type);
+
+        // 0
+        aggregateData.setArg(0, rho);
+        aggregateData.setArg(1, u);
+        aggregateData.setArg(2, f_collide);
+        aggregateData.setArg(3, type);
+        // 1
+        aggregateData_swap.setArg(0, rho);
+        aggregateData_swap.setArg(1, u);
+        aggregateData_swap.setArg(2, f_stream);
+        aggregateData_swap.setArg(3, type);
+
 
         // initLBM
         cl::Event event_initLBM;
-        cl::NDRange lws(1, 1, 1);
-        cl::NDRange gws(LATTICE_DIM, LATTICE_DIM, LATTICE_DIM);
+        // cl::NDRange lws = cl::NDRange(1, 1, 1);
+        cl::NDRange gws = cl::NDRange(LATTICE_DIM, LATTICE_DIM, LATTICE_DIM);
         CLUCheckError(
-            queue.enqueueNDRangeKernel(initLBM, cl::NullRange, gws, lws, NULL, &event_initLBM),
+            queue.enqueueNDRangeKernel(initLBM, cl::NullRange, gws, cl::NullRange, NULL, &event_initLBM),
             "initLBM",
             true
         );
-        CLUEventPrintStats("initLBM", event_initLBM);
+        totalTime += CLUEventPrintStats("initLBM", event_initLBM);
 
-
-        cl::Event event_aggregateDataLBM;
-        cl::Event event_read_rho;
-        cl::Event event_read_u;
-        CLUCheckError(
-            queue.enqueueNDRangeKernel(aggregateDataLBM1, cl::NullRange, gws, lws, NULL, &event_aggregateDataLBM),
-            "aggregateDataLBM",
-            true
-        );
-        CLUEventPrintStats(" aggregateDataLBM", event_aggregateDataLBM);
-
-
-        CLUCheckError(
-            queue.enqueueReadBuffer(rho, CL_TRUE, 0, LATTICE_SIZE * sizeof(float), rhoData, NULL, &event_read_rho),
-            "readRho",
-            true
-        );
-        CLUEventPrintStats("          readRho", event_read_rho);
-        CLUWriteBufferCubeToVTK(rhoData, LATTICE_DIM, timestamp);
-
-
-        CLUCheckError(
-            queue.enqueueReadBuffer(u, CL_TRUE, 0, LATTICE_SIZE * 4 * sizeof(float), velData, NULL, &event_read_u),
-            "readU",
-            true
-        );
-        CLUEventPrintStats("            readU", event_read_rho);
-        CLUWriteBufferCube3DToVTK(velData, LATTICE_DIM, timestamp);
+        dumpAndStoreData(queue, aggregateData, rho, u);
+        timestamp++;
 
     } catch (cl::Error err) {
         CLUErrorPrint(err, true);
     }
 
-    std::cout << "initLBM completed!" << std::endl;
+    std::cout << "init completed!" << std::endl;
 
     while (timestamp <= iterations) {
 
-        if ((timestamp & 1) == 0) {
+        if (timestamp % 2 == 1) {
             processData(queue,
-                        streamingLBM0,
-                        collisionLBM0,
-                        updateBoundaryLBM0,
-                        aggregateDataLBM0, rho, u,
-                        printsEvery);
+                        updateBoundary,
+                        collision,
+                        streaming);
+            dumpAndStoreData(queue, aggregateData, rho, u);
         } else {
             processData(queue,
-                    streamingLBM1,
-                    collisionLBM1,
-                    updateBoundaryLBM1,
-                    aggregateDataLBM1, rho, u,
-                    printsEvery);
+                        updateBoundary_swap,
+                        collision_swap,
+                        streaming_swap);
+            dumpAndStoreData(queue, aggregateData_swap, rho, u);
         }
         timestamp++;
     }
+
+    std::cout << "Total time: "
+              << std::fixed << std::setw(8) << std::setprecision(4)
+              << totalTime << " ms"
+              << std::endl;
 
     return 0;
 }

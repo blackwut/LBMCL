@@ -8,7 +8,7 @@
 
 #include "CLUtil.hpp"
 
-#define LATTICE_DIM (8)
+#define LATTICE_DIM (32)
 #define LATTICE_SIZE ((LATTICE_DIM) * (LATTICE_DIM) * (LATTICE_DIM))
 
 
@@ -47,8 +47,8 @@ static void storeData()
         for (size_t y = 1; y < LATTICE_DIM - 1; ++y) {
             for (size_t x = 1; x < LATTICE_DIM - 1; ++x) {
                 const float val = rhoData[x + (y * LATTICE_DIM) + (z * LATTICE_DIM * LATTICE_DIM)];
-                vtk << std::scientific << (fabs(val) < 1e-6 ? 0.0f : val) << " ";
-                // vtk << std::scientific << val << " ";
+                // vtk << std::scientific << (fabs(val) < 1e-6 ? 0.0f : val) << " ";
+                vtk << std::scientific << val << " ";
             }
             vtk << "\n";
         }
@@ -64,12 +64,12 @@ static void storeData()
                 const float val0 = velData[(x + (y * LATTICE_DIM) + (z * LATTICE_DIM * LATTICE_DIM)) * 3 + 0];
                 const float val1 = velData[(x + (y * LATTICE_DIM) + (z * LATTICE_DIM * LATTICE_DIM)) * 3 + 1];
                 const float val2 = velData[(x + (y * LATTICE_DIM) + (z * LATTICE_DIM * LATTICE_DIM)) * 3 + 2];
-                vtk << std::scientific << (fabs(val0) < 1e-6 ? 0.0f : val0) << " "
-                    << std::scientific << (fabs(val1) < 1e-6 ? 0.0f : val1) << " "
-                    << std::scientific << (fabs(val2) < 1e-6 ? 0.0f : val2) << " ";
-                // vtk << std::scientific << val0 << " "
-                //     << std::scientific << val1 << " "
-                //     << std::scientific << val2 << " ";
+                // vtk << std::scientific << (fabs(val0) < 1e-6 ? 0.0f : val0) << " "
+                //     << std::scientific << (fabs(val1) < 1e-6 ? 0.0f : val1) << " "
+                //     << std::scientific << (fabs(val2) < 1e-6 ? 0.0f : val2) << " ";
+                vtk << std::scientific << val0 << " "
+                    << std::scientific << val1 << " "
+                    << std::scientific << val2 << " ";
             }
             vtk << "\n";
         }
@@ -302,13 +302,13 @@ int main(int argc, char * argv[])
                         updateBoundary,
                         collision,
                         streaming);
-            dumpAndStoreData(queue, aggregateData, rho, u);
+            if (timestamp % printsEvery == 0) dumpAndStoreData(queue, aggregateData, rho, u);
         } else {
             processData(queue,
                         updateBoundary_swap,
                         collision_swap,
                         streaming_swap);
-            dumpAndStoreData(queue, aggregateData_swap, rho, u);
+            if (timestamp % printsEvery == 0) dumpAndStoreData(queue, aggregateData_swap, rho, u);
         }
         timestamp++;
     }

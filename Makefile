@@ -1,7 +1,7 @@
 UNAME_S := $(shell uname -s)
 
 CXX			= g++
-CXXFLAGS	= -std=c++11 -Wall -pedantic -g
+CXXFLAGS	= -std=c++11 -Wall -pedantic -O3
 LDLIBS		=
 INCLUDES	= -I./libs
 TARGET		= lbmcl
@@ -25,12 +25,12 @@ TARGET_CPU: $(TARGET_CPU).cpp
 
 test: $(TARGET)
 	$(RM) /Volumes/RamDisk/lbmcl.*
-	./lbmcl 0 2 10 1
+	./lbmcl 0 2 500 20
 	#python3 verify.py 1
 
 testcpu: $(TARGET_CPU)
 	$(RM) /Volumes/RamDisk/lbmcl.*
-	./lbmcpp 10
+	./lbmcpp 500 20
 
 clean:
 	$(RM) $(TARGET) *.o *~ 

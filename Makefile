@@ -6,7 +6,6 @@ LDLIBS		=
 INCLUDES	= -I./libs
 TARGET		= lbmcl
 TARGET_CPU	= lbmcpp
-TARGET_SAIL	= lbmsailfish
 
 
 ifeq ($(UNAME_S), Darwin)
@@ -32,10 +31,6 @@ test: $(TARGET)
 testcpu: $(TARGET_CPU)
 	$(RM) /Volumes/RamDisk/lbmcl.*
 	./lbmcpp 10 1
-
-testsailfish: $(TARGET_SAIL)
-	$(RM) /Volumes/RamDisk/lbmcl.*
-	./lbmsailfish 10 1
 
 clean:
 	$(RM) $(TARGET) *.o *~ 

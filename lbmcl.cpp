@@ -40,7 +40,7 @@ static void storeData()
     std::ofstream vtk;
 
     std::stringstream filenameBuilder;
-    filenameBuilder << dump_path << "lbmcl." << std::setw(2) << std::setfill('0') << timestamp << ".vti";
+    filenameBuilder << dump_path << "/lbmcl." << std::setw(2) << std::setfill('0') << timestamp << ".vti";
 
     vtk.open(filenameBuilder.str());
 
@@ -255,7 +255,9 @@ int main(int argc, char * argv[])
     try {
         initLBM.setArg(0, f_stream);
         initLBM.setArg(1, f_collide);
-        initLBM.setArg(2, type);
+        initLBM.setArg(2, rho);
+        initLBM.setArg(3, u);
+        initLBM.setArg(4, type);
 
         // 0
         computeMacro.setArg(0, f_collide);

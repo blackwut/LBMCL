@@ -67,7 +67,7 @@ inline int is_collision(const int cell_type)
 
 
 __kernel
-void init(__global float * f_stream, __global float * f_collide, __global int * type)
+void init(__global float * f_stream, __global float * f_collide, __global float * density, __global float * u, __global int * type)
 {
     const int x = get_global_id(0);
     const int y = get_global_id(1);
@@ -99,8 +99,6 @@ void init(__global float * f_stream, __global float * f_collide, __global int * 
     const float f16 = (OMEGA_16 * rho) * (-1.5f * (ux * ux) + uy * (3.0f * uy - 9.0f * uz - 3.0f) + uz * (3.0f * uz + 3.0f)) + (OMEGA_16 * rho);
     const float f17 = (OMEGA_17 * rho) * (ux * (3.0f * ux + 9.0f * uy - 3.0f) + uy * (3.0f * uy - 3.0f) - 1.5f * (uz * uz)) + (OMEGA_17 * rho);
     const float f18 = (OMEGA_18 * rho) * (-1.5f * (ux * ux) + uy * (3.0f * uy + 9.0f * uz - 3.0f) + uz * (3.0f * uz - 3.0f)) + (OMEGA_18 * rho);
-
-    type[id] = cell_type;
 
     f_collide[IDxyzw(id,  0)] =  f0;
     f_collide[IDxyzw(id,  1)] =  f1;
@@ -141,6 +139,13 @@ void init(__global float * f_stream, __global float * f_collide, __global int * 
     f_stream[IDxyzw(id, 16)] = f16;
     f_stream[IDxyzw(id, 17)] = f17;
     f_stream[IDxyzw(id, 18)] = f18;
+
+    density[id] = (cell_type == WALL ? NAN : rho);
+    u[id * 3 + 0] = (cell_type == WALL ? NAN : ux);
+    u[id * 3 + 1] = (cell_type == WALL ? NAN : uy);
+    u[id * 3 + 2] = (cell_type == WALL ? NAN : uz);
+
+    type[id] = cell_type;
 }
 
 

@@ -1,33 +1,39 @@
 #ifndef CONSTANTS_H
 #define CONSTANTS_H
 
-#define D                       3
-#define Q                       19
+
+#define D                           3
+#define Q                           19
 
 #ifndef DIM
-#define DIM                     32
+#define DIM                         8
 #endif
 
-#define DIM_X                   DIM
-#define DIM_Y                   DIM
-#define DIM_Z                   DIM
+#define DIM_X                       DIM
+#define DIM_Y                       DIM
+#define DIM_Z                       DIM
 
-#define CELL_INITIAL_DENSITY    1.0f
-#define CELL_INITIAL_VELOCITY   0.05f
+#define CELL_INITIAL_DENSITY        1.0f
+#define CELL_INITIAL_VELOCITY_X     5.00000000000000027756e-02f
+#define CELL_INITIAL_VELOCITY_Y     0.0f
+#define CELL_INITIAL_VELOCITY_Z     0.0f
 
-#define VISCOSITY               0.0089f
-#define TAU                     ((3.0f * VISCOSITY) / (DELTA_T * DELTA_X * DELTA_X) + 0.5f)
-#define INV_TAU                 (1.0f / TAU)
+#define VISCOSITY                   0.0089f
+#define TAU                         ((3.0f * VISCOSITY) / (DELTA_T * DELTA_X * DELTA_X) + 0.5f)
+#define INV_TAU                     1.89861401177140698415e+00f
 
-#define DELTA_X 1.0f
-#define DELTA_T 1.0f
-#define C2_INV (DELTA_T / DELTA_X)
-#define C4_INV (C2_INV * C2_INV)
+#define DELTA_X                     1.0f
+#define DELTA_T                     1.0f
+#define C2_INV                      (DELTA_T / DELTA_X)
+#define C4_INV                      (C2_INV * C2_INV)
 
 
-#define IDxyz(x, y, z)      ((x) + ((y) * DIM_X) + ((z) * DIM_X * DIM_Y))
-#define IDxyzw(id, w)       ((id) * Q + (w))
+#define IDxyz(x, y, z)              ((x) + ((y) * DIM_X) + ((z) * DIM_X * DIM_Y))
+#define IDxyzw(id, w)               ((id) * Q + (w))
 
+// 0   1   0  -1   0   0   0   1  -1  -1   1   1   0  -1   0   1   0  -1   0
+// 0   0   1   0  -1   0   0   1   1  -1  -1   0   1   0  -1   0   1   0  -1
+// 0   0   0   0   0  -1   1   0   0   0   0  -1  -1  -1  -1   1   1   1   1
 
 #define E0_X    0
 #define E0_Y    0
@@ -178,8 +184,28 @@
 #define BACK_TOP            (BACK  | TOP)
 #define BACK_BOTTOM         (BACK  | BOTTOM)
 
-#define BOUNDARY_MOVING   FRONT
+#define MOVING_BOUNDARY   FRONT
 
+
+        // f_collide[IDxyzw(id,  0)] f0  = (OMEGA_0  * rho) * (-1.5f * (ux * ux) - 1.5f * (uy * uy) - 1.5f * (uz * uz)) + (OMEGA_0 * rho);
+        // f_collide[IDxyzw(id,  1)] f1  = (OMEGA_1  * rho) * (ux * (3.0f * ux + 3.0f) - 1.5f * (uy * uy) - 1.5f * (uz * uz)) + (OMEGA_1 * rho);
+        // f_collide[IDxyzw(id,  2)] f2  = (OMEGA_2  * rho) * (-1.5f * (ux * ux) - 1.5f * (uy * uy) + uz * (3.0f * uz + 3.0f)) + (OMEGA_2 * rho);
+        // f_collide[IDxyzw(id,  3)] f3  = (OMEGA_3  * rho) * (ux * (3.0f * ux - 3.0f) - 1.5f * (uy * uy) - 1.5f * (uz * uz)) + (OMEGA_3 * rho);
+        // f_collide[IDxyzw(id,  4)] f4  = (OMEGA_4  * rho) * (-1.5f * (ux * ux) - 1.5f * (uy * uy) + uz * (3.0f * uz - 3.0f)) + (OMEGA_4 * rho);
+        // f_collide[IDxyzw(id,  5)] f5  = (OMEGA_5  * rho) * (-1.5f * (ux * ux) + uy * (3.0f * uy + 3.0f) - 1.5f * (uz * uz)) + (OMEGA_5 * rho);
+        // f_collide[IDxyzw(id,  6)] f6  = (OMEGA_6  * rho) * (-1.5f * (ux * ux) + uy * (3.0f * uy - 3.0f) - 1.5f * (uz * uz)) + (OMEGA_6 * rho);
+        // f_collide[IDxyzw(id,  7)] f7  = (OMEGA_7  * rho) * (ux * (3.0f * ux + 9.0f * uz + 3.0f) - 1.5f * (uy * uy) + uz * (3.0f * uz + 3.0f)) + (OMEGA_7 * rho);
+        // f_collide[IDxyzw(id,  8)] f8  = (OMEGA_8  * rho) * (ux * (3.0f * ux - 9.0f * uz - 3.0f) - 1.5f * (uy * uy) + uz * (3.0f * uz + 3.0f)) + (OMEGA_8 * rho);
+        // f_collide[IDxyzw(id,  9)] f9  = (OMEGA_9  * rho) * (ux * (3.0f * ux + 9.0f * uz - 3.0f) - 1.5f * (uy * uy) + uz * (3.0f * uz - 3.0f)) + (OMEGA_9 * rho);
+        // f_collide[IDxyzw(id, 10)] f10 = (OMEGA_10 * rho) * (ux * (3.0f * ux - 9.0f * uz + 3.0f) - 1.5f * (uy * uy) + uz * (3.0f * uz - 3.0f)) + (OMEGA_10 * rho);
+        // f_collide[IDxyzw(id, 11)] f11 = (OMEGA_11 * rho) * (ux * (3.0f * ux + 9.0f * uy + 3.0f) + uy * (3.0f * uy + 3.0f) - 1.5f * (uz * uz)) + (OMEGA_11 * rho);
+        // f_collide[IDxyzw(id, 12)] f12 = (OMEGA_12 * rho) * (-1.5f * (ux * ux) + uy * (3.0f * uy + 9.0f * uz + 3.0f) + uz * (3.0f * uz + 3.0f)) + (OMEGA_12 * rho);
+        // f_collide[IDxyzw(id, 13)] f13 = (OMEGA_13 * rho) * (ux * (3.0f * ux - 9.0f * uy - 3.0f) + uy * (3.0f * uy + 3.0f) - 1.5f * (uz * uz)) + (OMEGA_13 * rho);
+        // f_collide[IDxyzw(id, 14)] f14 = (OMEGA_14 * rho) * (-1.5f * (ux * ux) + uy * (3.0f * uy - 9.0f * uz + 3.0f) + uz * (3.0f * uz - 3.0f)) + (OMEGA_14 * rho);
+        // f_collide[IDxyzw(id, 15)] f15 = (OMEGA_15 * rho) * (ux * (3.0f * ux - 9.0f * uy + 3.0f) + uy * (3.0f * uy - 3.0f) - 1.5f * (uz * uz)) + (OMEGA_15 * rho);
+        // f_collide[IDxyzw(id, 16)] f16 = (OMEGA_16 * rho) * (-1.5f * (ux * ux) + uy * (3.0f * uy - 9.0f * uz - 3.0f) + uz * (3.0f * uz + 3.0f)) + (OMEGA_16 * rho);
+        // f_collide[IDxyzw(id, 17)] f17 = (OMEGA_17 * rho) * (ux * (3.0f * ux + 9.0f * uy - 3.0f) + uy * (3.0f * uy - 3.0f) - 1.5f * (uz * uz)) + (OMEGA_17 * rho);
+        // f_collide[IDxyzw(id, 18)] f18 = (OMEGA_18 * rho) * (-1.5f * (ux * ux) + uy * (3.0f * uy + 9.0f * uz - 3.0f) + uz * (3.0f * uz - 3.0f)) + (OMEGA_18 * rho);
 
 #define UNROLL_19() \
     UNROLL_X(0)     \
@@ -202,15 +228,17 @@
     UNROLL_X(17)    \
     UNROLL_X(18)
 
+
 #define UNROLL_HALF_19() \
-    UNROLL_X(1)          \
-    UNROLL_X(2)          \
-    UNROLL_X(3)          \
-    UNROLL_X(4)          \
-    UNROLL_X(5)          \
-    UNROLL_X(6)          \
-    UNROLL_X(7)          \
-    UNROLL_X(8)          \
-    UNROLL_X(9)          \
+    UNROLL_X( 1)         \
+    UNROLL_X( 2)         \
+    UNROLL_X( 5)         \
+    UNROLL_X( 7)         \
+    UNROLL_X( 8)         \
+    UNROLL_X(11)         \
+    UNROLL_X(12)         \
+    UNROLL_X(13)         \
+    UNROLL_X(14)
+
 
 #endif

@@ -6,6 +6,7 @@ LDLIBS		=
 INCLUDES	= -I./libs
 TARGET		= lbmcl
 TARGET_CPU	= lbmcpp
+TARGET_SAIL	= lbmsailfish
 
 
 ifeq ($(UNAME_S), Darwin)
@@ -25,12 +26,16 @@ TARGET_CPU: $(TARGET_CPU).cpp
 
 test: $(TARGET)
 	$(RM) /Volumes/RamDisk/lbmcl.*
-	./lbmcl 0 2 500 20
+	./lbmcl 0 2 10 1 "/Volumes/RamDisk/"
 	#python3 verify.py 1
 
 testcpu: $(TARGET_CPU)
 	$(RM) /Volumes/RamDisk/lbmcl.*
-	./lbmcpp 500 20
+	./lbmcpp 10 1
+
+testsailfish: $(TARGET_SAIL)
+	$(RM) /Volumes/RamDisk/lbmcl.*
+	./lbmsailfish 10 1
 
 clean:
 	$(RM) $(TARGET) *.o *~ 

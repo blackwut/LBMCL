@@ -31,8 +31,11 @@
 #define IDxyz(x, y, z)              ((x) + ((y) * DIM_X) + ((z) * DIM_X * DIM_Y))
 #define IDxyzw(id, w)               ((id) * Q + (w))
 
+// E_X
 // 0   1   0  -1   0   0   0   1  -1  -1   1   1   0  -1   0   1   0  -1   0
+// E_Y
 // 0   0   1   0  -1   0   0   1   1  -1  -1   0   1   0  -1   0   1   0  -1
+// E_Z
 // 0   0   0   0   0  -1   1   0   0   0   0  -1  -1  -1  -1   1   1   1   1
 
 #define E0_X    0
@@ -156,56 +159,79 @@
 
 #define NONE                (0)
 #define FLUID               (1 <<  0)
-#define WALL                (1 <<  1)
-#define LEFT                (1 <<  2)
-#define RIGHT               (1 <<  3)
-#define TOP                 (1 <<  4)
-#define BOTTOM              (1 <<  5)
-#define FRONT               (1 <<  6)
-#define BACK                (1 <<  7)
-#define LEFT_TOP            (LEFT  | TOP)
-#define LEFT_BOTTOM         (LEFT  | BOTTOM)
-#define LEFT_BACK           (LEFT  | BACK)
-#define LEFT_FRONT          (LEFT  | FRONT)
-#define LEFT_FRONT_TOP      (LEFT  | FRONT  | TOP)
-#define LEFT_FRONT_BOTTOM   (LEFT  | FRONT  | BOTTOM)
-#define LEFT_BACK_TOP       (LEFT  | BACK   | TOP)
-#define LEFT_BACK_BOTTOM    (LEFT  | BACK   | BOTTOM)
-#define RIGHT_TOP           (RIGHT | TOP)
-#define RIGHT_BOTTOM        (RIGHT | BOTTOM)
-#define RIGHT_BACK          (RIGHT | BACK)
-#define RIGHT_FRONT         (RIGHT | FRONT)
-#define RIGHT_FRONT_TOP     (RIGHT | FRONT  | TOP)
-#define RIGHT_FRONT_BOTTOM  (RIGHT | FRONT  | BOTTOM)
-#define RIGHT_BACK_TOP      (RIGHT | BACK   | TOP)
-#define RIGHT_BACK_BOTTOM   (RIGHT | BACK   | BOTTOM)
-#define FRONT_TOP           (FRONT | TOP)
-#define FRONT_BOTTOM        (FRONT | BOTTOM)
-#define BACK_TOP            (BACK  | TOP)
-#define BACK_BOTTOM         (BACK  | BOTTOM)
+#define CORNER              (1 <<  1)
+#define WALL                (1 <<  2)
+#define LEFT                (1 <<  3)
+#define RIGHT               (1 <<  4)
+#define TOP                 (1 <<  5)
+#define BOTTOM              (1 <<  6)
+#define FRONT               (1 <<  7)
+#define BACK                (1 <<  8)
+// #define LEFT_TOP            (LEFT  | TOP)
+// #define LEFT_BOTTOM         (LEFT  | BOTTOM)
+// #define LEFT_BACK           (LEFT  | BACK)
+// #define LEFT_FRONT          (LEFT  | FRONT)
+// #define LEFT_FRONT_TOP      (LEFT  | FRONT  | TOP)
+// #define LEFT_FRONT_BOTTOM   (LEFT  | FRONT  | BOTTOM)
+// #define LEFT_BACK_TOP       (LEFT  | BACK   | TOP)
+// #define LEFT_BACK_BOTTOM    (LEFT  | BACK   | BOTTOM)
+// #define RIGHT_TOP           (RIGHT | TOP)
+// #define RIGHT_BOTTOM        (RIGHT | BOTTOM)
+// #define RIGHT_BACK          (RIGHT | BACK)
+// #define RIGHT_FRONT         (RIGHT | FRONT)
+// #define RIGHT_FRONT_TOP     (RIGHT | FRONT  | TOP)
+// #define RIGHT_FRONT_BOTTOM  (RIGHT | FRONT  | BOTTOM)
+// #define RIGHT_BACK_TOP      (RIGHT | BACK   | TOP)
+// #define RIGHT_BACK_BOTTOM   (RIGHT | BACK   | BOTTOM)
+// #define FRONT_TOP           (FRONT | TOP)
+// #define FRONT_BOTTOM        (FRONT | BOTTOM)
+// #define BACK_TOP            (BACK  | TOP)
+// #define BACK_BOTTOM         (BACK  | BOTTOM)
 
 #define MOVING_BOUNDARY   FRONT
 
 
-        // f_collide[IDxyzw(id,  0)] f0  = (OMEGA_0  * rho) * (-1.5f * (ux * ux) - 1.5f * (uy * uy) - 1.5f * (uz * uz)) + (OMEGA_0 * rho);
-        // f_collide[IDxyzw(id,  1)] f1  = (OMEGA_1  * rho) * (ux * (3.0f * ux + 3.0f) - 1.5f * (uy * uy) - 1.5f * (uz * uz)) + (OMEGA_1 * rho);
-        // f_collide[IDxyzw(id,  2)] f2  = (OMEGA_2  * rho) * (-1.5f * (ux * ux) - 1.5f * (uy * uy) + uz * (3.0f * uz + 3.0f)) + (OMEGA_2 * rho);
-        // f_collide[IDxyzw(id,  3)] f3  = (OMEGA_3  * rho) * (ux * (3.0f * ux - 3.0f) - 1.5f * (uy * uy) - 1.5f * (uz * uz)) + (OMEGA_3 * rho);
-        // f_collide[IDxyzw(id,  4)] f4  = (OMEGA_4  * rho) * (-1.5f * (ux * ux) - 1.5f * (uy * uy) + uz * (3.0f * uz - 3.0f)) + (OMEGA_4 * rho);
-        // f_collide[IDxyzw(id,  5)] f5  = (OMEGA_5  * rho) * (-1.5f * (ux * ux) + uy * (3.0f * uy + 3.0f) - 1.5f * (uz * uz)) + (OMEGA_5 * rho);
-        // f_collide[IDxyzw(id,  6)] f6  = (OMEGA_6  * rho) * (-1.5f * (ux * ux) + uy * (3.0f * uy - 3.0f) - 1.5f * (uz * uz)) + (OMEGA_6 * rho);
-        // f_collide[IDxyzw(id,  7)] f7  = (OMEGA_7  * rho) * (ux * (3.0f * ux + 9.0f * uz + 3.0f) - 1.5f * (uy * uy) + uz * (3.0f * uz + 3.0f)) + (OMEGA_7 * rho);
-        // f_collide[IDxyzw(id,  8)] f8  = (OMEGA_8  * rho) * (ux * (3.0f * ux - 9.0f * uz - 3.0f) - 1.5f * (uy * uy) + uz * (3.0f * uz + 3.0f)) + (OMEGA_8 * rho);
-        // f_collide[IDxyzw(id,  9)] f9  = (OMEGA_9  * rho) * (ux * (3.0f * ux + 9.0f * uz - 3.0f) - 1.5f * (uy * uy) + uz * (3.0f * uz - 3.0f)) + (OMEGA_9 * rho);
-        // f_collide[IDxyzw(id, 10)] f10 = (OMEGA_10 * rho) * (ux * (3.0f * ux - 9.0f * uz + 3.0f) - 1.5f * (uy * uy) + uz * (3.0f * uz - 3.0f)) + (OMEGA_10 * rho);
-        // f_collide[IDxyzw(id, 11)] f11 = (OMEGA_11 * rho) * (ux * (3.0f * ux + 9.0f * uy + 3.0f) + uy * (3.0f * uy + 3.0f) - 1.5f * (uz * uz)) + (OMEGA_11 * rho);
-        // f_collide[IDxyzw(id, 12)] f12 = (OMEGA_12 * rho) * (-1.5f * (ux * ux) + uy * (3.0f * uy + 9.0f * uz + 3.0f) + uz * (3.0f * uz + 3.0f)) + (OMEGA_12 * rho);
-        // f_collide[IDxyzw(id, 13)] f13 = (OMEGA_13 * rho) * (ux * (3.0f * ux - 9.0f * uy - 3.0f) + uy * (3.0f * uy + 3.0f) - 1.5f * (uz * uz)) + (OMEGA_13 * rho);
-        // f_collide[IDxyzw(id, 14)] f14 = (OMEGA_14 * rho) * (-1.5f * (ux * ux) + uy * (3.0f * uy - 9.0f * uz + 3.0f) + uz * (3.0f * uz - 3.0f)) + (OMEGA_14 * rho);
-        // f_collide[IDxyzw(id, 15)] f15 = (OMEGA_15 * rho) * (ux * (3.0f * ux - 9.0f * uy + 3.0f) + uy * (3.0f * uy - 3.0f) - 1.5f * (uz * uz)) + (OMEGA_15 * rho);
-        // f_collide[IDxyzw(id, 16)] f16 = (OMEGA_16 * rho) * (-1.5f * (ux * ux) + uy * (3.0f * uy - 9.0f * uz - 3.0f) + uz * (3.0f * uz + 3.0f)) + (OMEGA_16 * rho);
-        // f_collide[IDxyzw(id, 17)] f17 = (OMEGA_17 * rho) * (ux * (3.0f * ux + 9.0f * uy - 3.0f) + uy * (3.0f * uy - 3.0f) - 1.5f * (uz * uz)) + (OMEGA_17 * rho);
-        // f_collide[IDxyzw(id, 18)] f18 = (OMEGA_18 * rho) * (-1.5f * (ux * ux) + uy * (3.0f * uy + 9.0f * uz - 3.0f) + uz * (3.0f * uz - 3.0f)) + (OMEGA_18 * rho);
+// f_collide[IDxyzw(id,  0)] f0  = (OMEGA_0  * rho) * (-1.5f * (ux * ux) - 1.5f * (uy * uy) - 1.5f * (uz * uz)) + (OMEGA_0 * rho);
+// f_collide[IDxyzw(id,  1)] f1  = (OMEGA_1  * rho) * (ux * (3.0f * ux + 3.0f) - 1.5f * (uy * uy) - 1.5f * (uz * uz)) + (OMEGA_1 * rho);
+// f_collide[IDxyzw(id,  2)] f2  = (OMEGA_2  * rho) * (-1.5f * (ux * ux) - 1.5f * (uy * uy) + uz * (3.0f * uz + 3.0f)) + (OMEGA_2 * rho);
+// f_collide[IDxyzw(id,  3)] f3  = (OMEGA_3  * rho) * (ux * (3.0f * ux - 3.0f) - 1.5f * (uy * uy) - 1.5f * (uz * uz)) + (OMEGA_3 * rho);
+// f_collide[IDxyzw(id,  4)] f4  = (OMEGA_4  * rho) * (-1.5f * (ux * ux) - 1.5f * (uy * uy) + uz * (3.0f * uz - 3.0f)) + (OMEGA_4 * rho);
+// f_collide[IDxyzw(id,  5)] f5  = (OMEGA_5  * rho) * (-1.5f * (ux * ux) + uy * (3.0f * uy + 3.0f) - 1.5f * (uz * uz)) + (OMEGA_5 * rho);
+// f_collide[IDxyzw(id,  6)] f6  = (OMEGA_6  * rho) * (-1.5f * (ux * ux) + uy * (3.0f * uy - 3.0f) - 1.5f * (uz * uz)) + (OMEGA_6 * rho);
+// f_collide[IDxyzw(id,  7)] f7  = (OMEGA_7  * rho) * (ux * (3.0f * ux + 9.0f * uz + 3.0f) - 1.5f * (uy * uy) + uz * (3.0f * uz + 3.0f)) + (OMEGA_7 * rho);
+// f_collide[IDxyzw(id,  8)] f8  = (OMEGA_8  * rho) * (ux * (3.0f * ux - 9.0f * uz - 3.0f) - 1.5f * (uy * uy) + uz * (3.0f * uz + 3.0f)) + (OMEGA_8 * rho);
+// f_collide[IDxyzw(id,  9)] f9  = (OMEGA_9  * rho) * (ux * (3.0f * ux + 9.0f * uz - 3.0f) - 1.5f * (uy * uy) + uz * (3.0f * uz - 3.0f)) + (OMEGA_9 * rho);
+// f_collide[IDxyzw(id, 10)] f10 = (OMEGA_10 * rho) * (ux * (3.0f * ux - 9.0f * uz + 3.0f) - 1.5f * (uy * uy) + uz * (3.0f * uz - 3.0f)) + (OMEGA_10 * rho);
+// f_collide[IDxyzw(id, 11)] f11 = (OMEGA_11 * rho) * (ux * (3.0f * ux + 9.0f * uy + 3.0f) + uy * (3.0f * uy + 3.0f) - 1.5f * (uz * uz)) + (OMEGA_11 * rho);
+// f_collide[IDxyzw(id, 12)] f12 = (OMEGA_12 * rho) * (-1.5f * (ux * ux) + uy * (3.0f * uy + 9.0f * uz + 3.0f) + uz * (3.0f * uz + 3.0f)) + (OMEGA_12 * rho);
+// f_collide[IDxyzw(id, 13)] f13 = (OMEGA_13 * rho) * (ux * (3.0f * ux - 9.0f * uy - 3.0f) + uy * (3.0f * uy + 3.0f) - 1.5f * (uz * uz)) + (OMEGA_13 * rho);
+// f_collide[IDxyzw(id, 14)] f14 = (OMEGA_14 * rho) * (-1.5f * (ux * ux) + uy * (3.0f * uy - 9.0f * uz + 3.0f) + uz * (3.0f * uz - 3.0f)) + (OMEGA_14 * rho);
+// f_collide[IDxyzw(id, 15)] f15 = (OMEGA_15 * rho) * (ux * (3.0f * ux - 9.0f * uy + 3.0f) + uy * (3.0f * uy - 3.0f) - 1.5f * (uz * uz)) + (OMEGA_15 * rho);
+// f_collide[IDxyzw(id, 16)] f16 = (OMEGA_16 * rho) * (-1.5f * (ux * ux) + uy * (3.0f * uy - 9.0f * uz - 3.0f) + uz * (3.0f * uz + 3.0f)) + (OMEGA_16 * rho);
+// f_collide[IDxyzw(id, 17)] f17 = (OMEGA_17 * rho) * (ux * (3.0f * ux + 9.0f * uy - 3.0f) + uy * (3.0f * uy - 3.0f) - 1.5f * (uz * uz)) + (OMEGA_17 * rho);
+// f_collide[IDxyzw(id, 18)] f18 = (OMEGA_18 * rho) * (-1.5f * (ux * ux) + uy * (3.0f * uy + 9.0f * uz - 3.0f) + uz * (3.0f * uz - 3.0f)) + (OMEGA_18 * rho);
+
+
+// f_collide[IDxyzw(id,  0)] f0  = (OMEGA_0  * rho) * (-1.5 * (ux * ux) - 1.5 * (uy * uy) - 1.5 * (uz * uz))                             + (OMEGA_0  * rho);
+// f_collide[IDxyzw(id,  1)] f1  = (OMEGA_1  * rho) * (ux * (3.0f * ux + 3.0f) - 1.5 * (uy * uy) - 1.5 * (uz * uz))                      + (OMEGA_1  * rho);
+// f_collide[IDxyzw(id,  2)] f2  = (OMEGA_2  * rho) * (-1.5 * (ux * ux) + uy * (3.0f * uy + 3.0f) - 1.5 * (uz * uz))                     + (OMEGA_2  * rho);
+// f_collide[IDxyzw(id,  3)] f3  = (OMEGA_3  * rho) * (ux * (3.0f * ux - 3.0f) - 1.5 * (uy * uy) - 1.5 * (uz * uz))                      + (OMEGA_3  * rho);
+// f_collide[IDxyzw(id,  4)] f4  = (OMEGA_4  * rho) * (-1.5 * (ux * ux) + uy * (3.0f * uy - 3.0f) - 1.5 * (uz * uz))                     + (OMEGA_4  * rho);
+// f_collide[IDxyzw(id,  5)] f5  = (OMEGA_5  * rho) * (-1.5 * (ux * ux) - 1.5 * (uy * uy) + uz * (3.0f * uz - 3.0f))                     + (OMEGA_5  * rho);
+// f_collide[IDxyzw(id,  6)] f6  = (OMEGA_6  * rho) * (-1.5 * (ux * ux) - 1.5 * (uy * uy) + uz * (3.0f * uz + 3.0f))                     + (OMEGA_6  * rho);
+// f_collide[IDxyzw(id,  7)] f7  = (OMEGA_7  * rho) * (ux * (3.0f * ux + 9.0f * uy + 3.0f) + uy * (3.0f * uy + 3.0f) - 1.5 * (uz * uz))  + (OMEGA_7  * rho);
+// f_collide[IDxyzw(id,  8)] f8  = (OMEGA_8  * rho) * (ux * (3.0f * ux - 9.0f * uy - 3.0f) + uy * (3.0f * uy + 3.0f) - 1.5 * (uz * uz))  + (OMEGA_8  * rho);
+// f_collide[IDxyzw(id,  9)] f9  = (OMEGA_9  * rho) * (ux * (3.0f * ux + 9.0f * uy - 3.0f) + uy * (3.0f * uy - 3.0f) - 1.5 * (uz * uz))  + (OMEGA_9  * rho);
+// f_collide[IDxyzw(id, 10)] f10 = (OMEGA_10 * rho) * (ux * (3.0f * ux - 9.0f * uy + 3.0f) + uy * (3.0f * uy - 3.0f) - 1.5 * (uz * uz))  + (OMEGA_10 * rho);
+// f_collide[IDxyzw(id, 11)] f11 = (OMEGA_11 * rho) * (ux * (3.0f * ux - 9.0f * uz + 3.0f) - 1.5 * (uy * uy) + uz * (3.0f * uz - 3.0f))  + (OMEGA_11 * rho);
+// f_collide[IDxyzw(id, 12)] f12 = (OMEGA_12 * rho) * (-1.5 * (ux * ux) + uy * (3.0f * uy - 9.0f * uz + 3.0f) + uz * (3.0f * uz - 3.0f)) + (OMEGA_12 * rho);
+// f_collide[IDxyzw(id, 13)] f13 = (OMEGA_13 * rho) * (ux * (3.0f * ux + 9.0f * uz - 3.0f) - 1.5 * (uy * uy) + uz * (3.0f * uz - 3.0f))  + (OMEGA_13 * rho);
+// f_collide[IDxyzw(id, 14)] f14 = (OMEGA_14 * rho) * (-1.5 * (ux * ux) + uy * (3.0f * uy + 9.0f * uz - 3.0f) + uz * (3.0f * uz - 3.0f)) + (OMEGA_14 * rho);
+// f_collide[IDxyzw(id, 15)] f15 = (OMEGA_15 * rho) * (ux * (3.0f * ux + 9.0f * uz + 3.0f) - 1.5 * (uy * uy) + uz * (3.0f * uz + 3.0f))  + (OMEGA_15 * rho);
+// f_collide[IDxyzw(id, 16)] f16 = (OMEGA_16 * rho) * (-1.5 * (ux * ux) + uy * (3.0f * uy + 9.0f * uz + 3.0f) + uz * (3.0f * uz + 3.0f)) + (OMEGA_16 * rho);
+// f_collide[IDxyzw(id, 17)] f17 = (OMEGA_17 * rho) * (ux * (3.0f * ux - 9.0f * uz - 3.0f) - 1.5 * (uy * uy) + uz * (3.0f * uz + 3.0f))  + (OMEGA_17 * rho);
+// f_collide[IDxyzw(id, 18)] f18 = (OMEGA_18 * rho) * (-1.5 * (ux * ux) + uy * (3.0f * uy - 9.0f * uz - 3.0f) + uz * (3.0f * uz + 3.0f)) + (OMEGA_18 * rho);
+
 
 #define UNROLL_19() \
     UNROLL_X(0)     \

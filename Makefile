@@ -25,8 +25,8 @@ $(TARGET_CPU): $(TARGET_CPU).cpp
 	$(CXX)  -o $@ $^ $(LDLIBS) $(CXXFLAGS) $(INCLUDES)
 
 test: $(TARGET)
-	$(RM) $(FOLDER)lbmcl.*
-	./lbmcl 0 2 10 1 $(FOLDER)
+	$(RM) $(FOLDER)/lbmcl.*
+	./lbmcl 0 2 5 1 $(FOLDER)
 
 testcpu: $(TARGET_CPU)
 	$(RM) $(FOLDER)/lbmcl.*

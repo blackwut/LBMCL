@@ -23,11 +23,11 @@ int mapData[LATTICE_SIZE] = {-1};
 
 
 char * dump_path = NULL;
-size_t timestamp = 0;
+int timestamp = 0;
 int printsEvery = -1;
 double totalTime = 0.0f;
 
-#define VTK_PRINT 0
+#define VTK_PRINT 1
 
 
 static void storeData()
@@ -149,6 +149,9 @@ static void processData(const cl::CommandQueue & queue,
         );
         totalTime += CLUEventPrintStats("  computeMacro", event_computeMacro);
 
+        // TODO: check the condition 
+        if ((timestamp - 1) % printsEvery == 0) dumpAndStoreData(queue, rho, u);
+
         CLUCheckError(
             queue.enqueueNDRangeKernel(updateBoundary, cl::NullRange, gws, cl::NullRange, NULL, &event_updateBoundary),
             "updateBoundary",
@@ -169,9 +172,6 @@ static void processData(const cl::CommandQueue & queue,
             true
         );
         totalTime += CLUEventPrintStats("     streaming", event_streaming);
-
-        // TODO: check the condition 
-        if (timestamp % printsEvery == 0) dumpAndStoreData(queue, rho, u);
 
     } catch (cl::Error err) {
         CLUErrorPrint(err, true);
@@ -321,11 +321,11 @@ int main(int argc, char * argv[])
         CLUErrorPrint(err, true);
     }
 
-    std::cout << "init completed!" << std::endl;
+    std::cout << "initLBM completed!" << std::endl;
 
     while (timestamp <= iterations) {
 
-        if (timestamp % 2 == 1) {
+        if ((timestamp - 1) % 2 == 0) {
             processData(queue,
                         computeMacro,
                         updateBoundary,

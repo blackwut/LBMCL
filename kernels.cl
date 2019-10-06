@@ -1,14 +1,11 @@
 #include "constants.h"
 
-#define PRINT_DISTRIBUTION  1
-#define PRINT_MAP           0
-
-
 #define PRIMITIVE_CAT(a, b) a ## b
-#define CAT(a, b) PRIMITIVE_CAT(a, b)
-#define F f
-#define S(i) S_##i
-#define F_S(i) CAT(F, S(i))
+#define CAT(a, b)           PRIMITIVE_CAT(a, b)
+#define F                   f
+#define S(i)                S_##i
+#define F_S(i)              CAT(F, S(i))
+
 
 #define UX(id) u[(id) * 3 + 0]
 #define UY(id) u[(id) * 3 + 1]
@@ -55,40 +52,8 @@ inline int get_cell_type(const int x, const int y, const int z)
 }
 
 
-inline int is_fluid(const int cell_type)
-{
-    return (cell_type == FLUID);
-}
-
-inline int is_wall(const int cell_type)
-{
-    return (cell_type == WALL);
-}
-
-inline int is_corner(const int cell_type)
-{
-    return (cell_type == CORNER);
-}
-
-
-inline int is_boundary(const int cell_type)
-{
-    return (cell_type & (LEFT | RIGHT | BOTTOM | TOP | BACK | FRONT));
-}
-
-inline int is_moving(const int cell_type)
-{
-    return (cell_type == MOVING_BOUNDARY);
-}
-
-inline int is_collision(const int cell_type)
-{
-    return (is_moving(cell_type) || is_fluid(cell_type));
-}
-
-
 __kernel
-void init(__global float * f_stream, __global float * f_collide, __global float * density, __global float * u, __global int * type)
+void init(__global float * f_stream, __global float * f_collide, __global float * density, __global float * u, __global int * map)
 {
     const int x = get_global_id(0);
     const int y = get_global_id(1);
@@ -97,14 +62,15 @@ void init(__global float * f_stream, __global float * f_collide, __global float 
     const int cell_type = get_cell_type(x, y, z);
 
     const float rho = CELL_INITIAL_DENSITY;
-    const float ux  = (is_moving(cell_type) ? CELL_INITIAL_VELOCITY_X : 0.0f);
-    const float uy  = (is_moving(cell_type) ? CELL_INITIAL_VELOCITY_Y : 0.0f);
-    const float uz  = (is_moving(cell_type) ? CELL_INITIAL_VELOCITY_Z : 0.0f);
+    const float ux  = (cell_type & MOVING_BOUNDARY ? CELL_INITIAL_VELOCITY_X : 0.0f);
+    const float uy  = (cell_type & MOVING_BOUNDARY ? CELL_INITIAL_VELOCITY_Y : 0.0f);
+    const float uz  = (cell_type & MOVING_BOUNDARY ? CELL_INITIAL_VELOCITY_Z : 0.0f);
 
 #if (COLLIDE_METHOD == COLLIDE_SCRATCH)
     float eu = 0.0f;
     const float u2 = (ux * ux) + (uy * uy) + (uz * uz);
 
+#undef UNROLL_X
 #define UNROLL_X(i)                                                                             \
     eu = (ux * E##i##_X) + (uy * E##i##_Y) + (uz * E##i##_Z);                                   \
     const float f##i = (rho * OMEGA_##i) * (1.0f + (3.0f * eu) + (4.5f * eu * eu) - (1.5f * u2));
@@ -133,150 +99,31 @@ void init(__global float * f_stream, __global float * f_collide, __global float 
     const float f18 = (OMEGA_18 * rho) * (-1.5 * (ux * ux) + uy * (3.0f * uy - 9.0f * uz - 3.0f) + uz * (3.0f * uz + 3.0f)) + (OMEGA_18 * rho);
 #endif
 
-    f_collide[IDxyzw(id,  0)] = (is_wall(cell_type) ? NAN :  f0);
-    f_collide[IDxyzw(id,  1)] = (is_wall(cell_type) ? NAN :  f1);
-    f_collide[IDxyzw(id,  2)] = (is_wall(cell_type) ? NAN :  f2);
-    f_collide[IDxyzw(id,  3)] = (is_wall(cell_type) ? NAN :  f3);
-    f_collide[IDxyzw(id,  4)] = (is_wall(cell_type) ? NAN :  f4);
-    f_collide[IDxyzw(id,  5)] = (is_wall(cell_type) ? NAN :  f5);
-    f_collide[IDxyzw(id,  6)] = (is_wall(cell_type) ? NAN :  f6);
-    f_collide[IDxyzw(id,  7)] = (is_wall(cell_type) ? NAN :  f7);
-    f_collide[IDxyzw(id,  8)] = (is_wall(cell_type) ? NAN :  f8);
-    f_collide[IDxyzw(id,  9)] = (is_wall(cell_type) ? NAN :  f9);
-    f_collide[IDxyzw(id, 10)] = (is_wall(cell_type) ? NAN : f10);
-    f_collide[IDxyzw(id, 11)] = (is_wall(cell_type) ? NAN : f11);
-    f_collide[IDxyzw(id, 12)] = (is_wall(cell_type) ? NAN : f12);
-    f_collide[IDxyzw(id, 13)] = (is_wall(cell_type) ? NAN : f13);
-    f_collide[IDxyzw(id, 14)] = (is_wall(cell_type) ? NAN : f14);
-    f_collide[IDxyzw(id, 15)] = (is_wall(cell_type) ? NAN : f15);
-    f_collide[IDxyzw(id, 16)] = (is_wall(cell_type) ? NAN : f16);
-    f_collide[IDxyzw(id, 17)] = (is_wall(cell_type) ? NAN : f17);
-    f_collide[IDxyzw(id, 18)] = (is_wall(cell_type) ? NAN : f18);
+#undef UNROLL_X
+#define UNROLL_X(i) f_collide[IDxyzw(id, i)] = (is_wall(cell_type) ? NAN : f##i);
+    UNROLL_19();
 
-    f_stream[IDxyzw(id,  0)] = NAN;//(is_wall(cell_type) ? NAN :  f0);
-    f_stream[IDxyzw(id,  1)] = NAN;//(is_wall(cell_type) ? NAN :  f1);
-    f_stream[IDxyzw(id,  2)] = NAN;//(is_wall(cell_type) ? NAN :  f2);
-    f_stream[IDxyzw(id,  3)] = NAN;//(is_wall(cell_type) ? NAN :  f3);
-    f_stream[IDxyzw(id,  4)] = NAN;//(is_wall(cell_type) ? NAN :  f4);
-    f_stream[IDxyzw(id,  5)] = NAN;//(is_wall(cell_type) ? NAN :  f5);
-    f_stream[IDxyzw(id,  6)] = NAN;//(is_wall(cell_type) ? NAN :  f6);
-    f_stream[IDxyzw(id,  7)] = NAN;//(is_wall(cell_type) ? NAN :  f7);
-    f_stream[IDxyzw(id,  8)] = NAN;//(is_wall(cell_type) ? NAN :  f8);
-    f_stream[IDxyzw(id,  9)] = NAN;//(is_wall(cell_type) ? NAN :  f9);
-    f_stream[IDxyzw(id, 10)] = NAN;//(is_wall(cell_type) ? NAN : f10);
-    f_stream[IDxyzw(id, 11)] = NAN;//(is_wall(cell_type) ? NAN : f11);
-    f_stream[IDxyzw(id, 12)] = NAN;//(is_wall(cell_type) ? NAN : f12);
-    f_stream[IDxyzw(id, 13)] = NAN;//(is_wall(cell_type) ? NAN : f13);
-    f_stream[IDxyzw(id, 14)] = NAN;//(is_wall(cell_type) ? NAN : f14);
-    f_stream[IDxyzw(id, 15)] = NAN;//(is_wall(cell_type) ? NAN : f15);
-    f_stream[IDxyzw(id, 16)] = NAN;//(is_wall(cell_type) ? NAN : f16);
-    f_stream[IDxyzw(id, 17)] = NAN;//(is_wall(cell_type) ? NAN : f17);
-    f_stream[IDxyzw(id, 18)] = NAN;//(is_wall(cell_type) ? NAN : f18);
-    // f_collide[IDxyzw(id,  0)] =  f0;
-    // f_collide[IDxyzw(id,  1)] =  f1;
-    // f_collide[IDxyzw(id,  2)] =  f2;
-    // f_collide[IDxyzw(id,  3)] =  f3;
-    // f_collide[IDxyzw(id,  4)] =  f4;
-    // f_collide[IDxyzw(id,  5)] =  f5;
-    // f_collide[IDxyzw(id,  6)] =  f6;
-    // f_collide[IDxyzw(id,  7)] =  f7;
-    // f_collide[IDxyzw(id,  8)] =  f8;
-    // f_collide[IDxyzw(id,  9)] =  f9;
-    // f_collide[IDxyzw(id, 10)] = f10;
-    // f_collide[IDxyzw(id, 11)] = f11;
-    // f_collide[IDxyzw(id, 12)] = f12;
-    // f_collide[IDxyzw(id, 13)] = f13;
-    // f_collide[IDxyzw(id, 14)] = f14;
-    // f_collide[IDxyzw(id, 15)] = f15;
-    // f_collide[IDxyzw(id, 16)] = f16;
-    // f_collide[IDxyzw(id, 17)] = f17;
-    // f_collide[IDxyzw(id, 18)] = f18;
+#undef UNROLL_X
+#define UNROLL_X(i) f_stream[IDxyzw(id, i)] = NAN;
+    UNROLL_19();
 
-    // f_stream[IDxyzw(id,  0)] =  f0;
-    // f_stream[IDxyzw(id,  1)] =  f1;
-    // f_stream[IDxyzw(id,  2)] =  f2;
-    // f_stream[IDxyzw(id,  3)] =  f3;
-    // f_stream[IDxyzw(id,  4)] =  f4;
-    // f_stream[IDxyzw(id,  5)] =  f5;
-    // f_stream[IDxyzw(id,  6)] =  f6;
-    // f_stream[IDxyzw(id,  7)] =  f7;
-    // f_stream[IDxyzw(id,  8)] =  f8;
-    // f_stream[IDxyzw(id,  9)] =  f9;
-    // f_stream[IDxyzw(id, 10)] = f10;
-    // f_stream[IDxyzw(id, 11)] = f11;
-    // f_stream[IDxyzw(id, 12)] = f12;
-    // f_stream[IDxyzw(id, 13)] = f13;
-    // f_stream[IDxyzw(id, 14)] = f14;
-    // f_stream[IDxyzw(id, 15)] = f15;
-    // f_stream[IDxyzw(id, 16)] = f16;
-    // f_stream[IDxyzw(id, 17)] = f17;
-    // f_stream[IDxyzw(id, 18)] = f18;
+    density[id] = (is_wall(cell_type) || is_corner(cell_type) ? NAN : rho);
+    UX(id) = (is_wall(cell_type) || is_corner(cell_type) ? NAN : ux);
+    UY(id) = (is_wall(cell_type) || is_corner(cell_type) ? NAN : uy);
+    UZ(id) = (is_wall(cell_type) || is_corner(cell_type) ? NAN : uz);
 
-
-    density[id] = (is_wall(cell_type) ? NAN : rho);
-    UX(id) = (is_wall(cell_type) ? NAN : ux);
-    UY(id) = (is_wall(cell_type) ? NAN : uy);
-    UZ(id) = (is_wall(cell_type) ? NAN : uz);
-
-    type[id] = cell_type;
-
-#if PRINT_MAP
-    if (id == 0) {
-         printf("*** MAP ***\n");
-         for (int z = 0; z < DIM_Z; ++z) {
-             for (int y = 0; y < DIM_Y; ++y) {
-                 for (int x = 0; x < DIM_Z; ++x) {
-                     const int _t = type[IDxyz(x, y, z)];
-                     int val = 1;
-
-                     if (is_wall(_t)) val = 4;
-                     if (is_moving(_t)) val = 2;
-                     if (!is_moving(_t) && is_boundary(_t)) val = 3;
-                     printf("%d ", val);
-                 }
-                 printf("\n");
-             }
-             printf("\n");
-         }
-     }
-#endif
+    map[id] = cell_type;
 }
 
 
 __kernel
-void computeMacro(__global float * f_collide, __global float * density, __global float * u, __global const int * type)
+void computeMacro(__global float * f_collide, __global float * density, __global float * u, __global const int * map)
 {
     const int x = get_global_id(0);
     const int y = get_global_id(1);
     const int z = get_global_id(2);
     const int id = IDxyz(x, y, z);
-    const int cell_type = type[id];
-
-#if PRINT_DISTRIBUTION
-    if (x == 3 && y == 3 && z == 3) {
-        printf("DIST_OUT\n");
-        for (int z = 0; z < DIM; ++z) {
-            for (int y = 0; y < DIM; ++y) {
-                printf("          ");
-                for (int q = 0; q < Q; ++q) {
-                    printf("%7d ", q);
-                }
-                printf("\n");
-                for (int x = 0; x < DIM; ++x) {
-                    printf("(%d, %d, %d) ", x, y, z);
-                    for (int q = 0; q < Q; ++q) {
-                        const int index = IDxyz(x, y, z);
-                        printf("%7.5f ", f_collide[IDxyzw(index, q)]);
-                    }
-                    printf("\n");
-                }
-                printf("\n");
-            }
-            printf("\n");
-        }
-        printf("\n");
-    }
-#endif
+    const int cell_type = map[id];
 
     if (is_wall(cell_type) || is_corner(cell_type)) return;
 
@@ -305,6 +152,7 @@ void computeMacro(__global float * f_collide, __global float * density, __global
     rho = f0 + f1 + f2 + f3 + f4 + f5 + f6 + f7 + f8 + f9 + f10 + f11 + f12 + f13 + f14 + f15 + f16 + f17 + f18;
 
     if (is_moving(cell_type)) {
+        rho = rho / (CELL_INITIAL_VELOCITY_Z + 1.0f);
         ux = CELL_INITIAL_VELOCITY_X;
         uy = CELL_INITIAL_VELOCITY_Y;
         uz = CELL_INITIAL_VELOCITY_Z;
@@ -329,13 +177,13 @@ void computeMacro(__global float * f_collide, __global float * density, __global
 
 
 __kernel
-void boundaryConditions(__global float * f_collide, __global const float * density, __global const float * u, __global const int * type)
+void boundaryConditions(__global float * f_collide, __global const float * density, __global const float * u, __global const int * map)
 {
     const int x = get_global_id(0);
     const int y = get_global_id(1);
     const int z = get_global_id(2);
     const int id = IDxyz(x, y, z);
-    const int cell_type = type[id];
+    const int cell_type = map[id];
 
 
     if (is_fluid(cell_type) || is_wall(cell_type) || is_corner(cell_type)) return;
@@ -398,15 +246,15 @@ inline float compute_bgk(const float f, const float f_eq)
 }
 
 __kernel
-void collision(__global float * f_collide, __global const float * density, __global const float * u, __global const int * type)
+void collision(__global float * f_collide, __global const float * density, __global const float * u, __global const int * map)
 {
     const int x = get_global_id(0);
     const int y = get_global_id(1);
     const int z = get_global_id(2);
     const int id = IDxyz(x, y, z);
-    const int cell_type = type[id];
+    const int cell_type = map[id];
 
-    if (!is_collision(cell_type)) return;
+    if (!(is_moving(cell_type) || is_fluid(cell_type))) return;
 
     const float rho = density[id];
     const float ux = UX(id);
@@ -446,36 +294,20 @@ void collision(__global float * f_collide, __global const float * density, __glo
     const float f18 = (OMEGA_18 * rho) * (-1.5 * (ux * ux) + uy * (3.0f * uy - 9.0f * uz - 3.0f) + uz * (3.0f * uz + 3.0f)) + (OMEGA_18 * rho);
 #endif
 
-    f_collide[IDxyzw(id,  0)] = compute_bgk(f_collide[IDxyzw(id,  0)], f0 );
-    f_collide[IDxyzw(id,  1)] = compute_bgk(f_collide[IDxyzw(id,  1)], f1 );
-    f_collide[IDxyzw(id,  2)] = compute_bgk(f_collide[IDxyzw(id,  2)], f2 );
-    f_collide[IDxyzw(id,  3)] = compute_bgk(f_collide[IDxyzw(id,  3)], f3 );
-    f_collide[IDxyzw(id,  4)] = compute_bgk(f_collide[IDxyzw(id,  4)], f4 );
-    f_collide[IDxyzw(id,  5)] = compute_bgk(f_collide[IDxyzw(id,  5)], f5 );
-    f_collide[IDxyzw(id,  6)] = compute_bgk(f_collide[IDxyzw(id,  6)], f6 );
-    f_collide[IDxyzw(id,  7)] = compute_bgk(f_collide[IDxyzw(id,  7)], f7 );
-    f_collide[IDxyzw(id,  8)] = compute_bgk(f_collide[IDxyzw(id,  8)], f8 );
-    f_collide[IDxyzw(id,  9)] = compute_bgk(f_collide[IDxyzw(id,  9)], f9 );
-    f_collide[IDxyzw(id, 10)] = compute_bgk(f_collide[IDxyzw(id, 10)], f10);
-    f_collide[IDxyzw(id, 11)] = compute_bgk(f_collide[IDxyzw(id, 11)], f11);
-    f_collide[IDxyzw(id, 12)] = compute_bgk(f_collide[IDxyzw(id, 12)], f12);
-    f_collide[IDxyzw(id, 13)] = compute_bgk(f_collide[IDxyzw(id, 13)], f13);
-    f_collide[IDxyzw(id, 14)] = compute_bgk(f_collide[IDxyzw(id, 14)], f14);
-    f_collide[IDxyzw(id, 15)] = compute_bgk(f_collide[IDxyzw(id, 15)], f15);
-    f_collide[IDxyzw(id, 16)] = compute_bgk(f_collide[IDxyzw(id, 16)], f16);
-    f_collide[IDxyzw(id, 17)] = compute_bgk(f_collide[IDxyzw(id, 17)], f17);
-    f_collide[IDxyzw(id, 18)] = compute_bgk(f_collide[IDxyzw(id, 18)], f18);
+#undef  UNROLL_X
+#define UNROLL_X(i) f_collide[IDxyzw(id, i)] = compute_bgk(f_collide[IDxyzw(id,  i)], f##i);
+    UNROLL_19();
 }
 
 
 __kernel
-void streaming(__global float * f_stream, __global const float * f_collide, __global const int * type)
+void streaming(__global float * f_stream, __global const float * f_collide, __global const int * map)
 {
     const int x = get_global_id(0);
     const int y = get_global_id(1);
     const int z = get_global_id(2);
     const int id = IDxyz(x, y, z);
-    const int cell_type = type[id];
+    const int cell_type = map[id];
 
 #if (STREAMING_METHOD == STREAMING_PULL)
     if (is_wall(cell_type) || is_corner(cell_type)) return;

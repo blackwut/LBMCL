@@ -13,6 +13,8 @@
 #define DIM_Y                       DIM
 #define DIM_Z                       DIM
 
+#define GRID_DIM                    (DIM_X * DIM_Y * DIM_Z)
+
 #define CELL_INITIAL_DENSITY        1.0f
 #define CELL_INITIAL_VELOCITY_X     5.00000000000000027756e-02f
 #define CELL_INITIAL_VELOCITY_Y     0.0f
@@ -266,5 +268,30 @@
     UNROLL_X(13)         \
     UNROLL_X(14)
 
+
+inline int is_fluid(const int cell_type)
+{
+    return (cell_type == FLUID);
+}
+
+inline int is_wall(const int cell_type)
+{
+    return (cell_type == WALL);
+}
+
+inline int is_corner(const int cell_type)
+{
+    return (cell_type == CORNER);
+}
+
+inline int is_boundary(const int cell_type)
+{
+    return (cell_type & (LEFT | RIGHT | BOTTOM | TOP | BACK | FRONT));
+}
+
+inline int is_moving(const int cell_type)
+{
+    return (cell_type == MOVING_BOUNDARY);
+}
 
 #endif

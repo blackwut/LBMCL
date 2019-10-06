@@ -25,12 +25,12 @@ $(TARGET_CPU): $(TARGET_CPU).cpp
 	$(CXX)  -o $@ $^ $(LDLIBS) $(CXXFLAGS) $(INCLUDES)
 
 test: $(TARGET)
-	$(RM) $(FOLDER)/lbmcl.*
-	./lbmcl 0 2 5 1 $(FOLDER)
+	@ $(RM) $(FOLDER)/lbmcl.*
+	@ ./lbmcl -P0 -D2 -d8 -v0.0089 -u0.05 -i5 -e1 -k /Volumes/RamDisk -p /Volumes/RamDisk -f
 
 testcpu: $(TARGET_CPU)
 	$(RM) $(FOLDER)/lbmcl.*
-	./lbmcpp 10 1
+	./lbmcpp 2 1
 
 clean:
 	$(RM) $(TARGET) *.o *~ 

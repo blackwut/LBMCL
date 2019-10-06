@@ -146,17 +146,17 @@ static inline void CLUSelectDevice(cl::Device & device,
             int device_id = 0;
             for (cl::Device & d : devices) {
                 std::cout << "#" << device_id++
-                            << " [" << (d.getInfo<CL_DEVICE_TYPE>() == 2 ? "CPU" : "GPU") << "] "
-                            << d.getInfo<CL_DEVICE_NAME>()
-                            << std::endl
-                            << "\tVendor:            " << d.getInfo<CL_DEVICE_VENDOR>()                     << std::endl
-                            << "\tMax Compute Units: " << d.getInfo<CL_DEVICE_MAX_COMPUTE_UNITS>()          << std::endl
-                            << "\tGlobal Memory:     " << (d.getInfo<CL_DEVICE_GLOBAL_MEM_SIZE>() >> 20)    << " MB" << std::endl
-                            << "\tMax Clock Freq.:   " << d.getInfo<CL_DEVICE_MAX_CLOCK_FREQUENCY>()        << " MHz" << std::endl
-                            << "\tMax Alloc. Memory: " << (d.getInfo<CL_DEVICE_MAX_MEM_ALLOC_SIZE>() >> 20) << " MB" << std::endl
-                            << "\tLocal Memory:      " << (d.getInfo<CL_DEVICE_LOCAL_MEM_SIZE>() >> 10)     << " KB" << std::endl
-                            << "\tAvailable:         " << (d.getInfo<CL_DEVICE_AVAILABLE>() ? "YES" : "NO") << std::endl
-                            << std::endl;
+                          << " [" << (d.getInfo<CL_DEVICE_TYPE>() == 2 ? "CPU" : "GPU") << "] "
+                          << d.getInfo<CL_DEVICE_NAME>()
+                          << std::endl
+                          << "\tVendor:            " << d.getInfo<CL_DEVICE_VENDOR>()                     << std::endl
+                          << "\tMax Compute Units: " << d.getInfo<CL_DEVICE_MAX_COMPUTE_UNITS>()          << std::endl
+                          << "\tGlobal Memory:     " << (d.getInfo<CL_DEVICE_GLOBAL_MEM_SIZE>() >> 20)    << " MB" << std::endl
+                          << "\tMax Clock Freq.:   " << d.getInfo<CL_DEVICE_MAX_CLOCK_FREQUENCY>()        << " MHz" << std::endl
+                          << "\tMax Alloc. Memory: " << (d.getInfo<CL_DEVICE_MAX_MEM_ALLOC_SIZE>() >> 20) << " MB" << std::endl
+                          << "\tLocal Memory:      " << (d.getInfo<CL_DEVICE_LOCAL_MEM_SIZE>() >> 10)     << " KB" << std::endl
+                          << "\tAvailable:         " << (d.getInfo<CL_DEVICE_AVAILABLE>() ? "YES" : "NO") << std::endl
+                          << std::endl;
             }
             std::cout << std::endl << "Select a device: ";
             std::cin >> selected_device;

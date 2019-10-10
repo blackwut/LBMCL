@@ -25,8 +25,16 @@ $(TARGET_CPU): $(TARGET_CPU).cpp
 	$(CXX)  -o $@ $^ $(LDLIBS) $(CXXFLAGS) $(INCLUDES)
 
 test: $(TARGET)
-	@ $(RM) $(FOLDER)/lbmcl.*
+	@ $(RM) $(FOLDER)/map*.dump
+	@ $(RM) $(FOLDER)/f_*.dump
+	@ $(RM) $(FOLDER)/lbmcl.*.vti
 	@ ./lbmcl -P0 -D2 -d8 -v0.0089 -u0.05 -i5 -e1 -k /Volumes/RamDisk -p /Volumes/RamDisk -f
+
+test32: $(TARGET)
+	@ $(RM) $(FOLDER)/map*.dump
+	@ $(RM) $(FOLDER)/f_*.dump
+	@ $(RM) $(FOLDER)/lbmcl.*.vti
+	@ ./lbmcl -P0 -D2 -d32 -v0.0089 -u5.00000000000000027756e-02f -i500 -e20 -k /Volumes/RamDisk
 
 testcpu: $(TARGET_CPU)
 	$(RM) $(FOLDER)/lbmcl.*

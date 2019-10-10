@@ -1,5 +1,6 @@
 #include <cstdio>
 #include <cmath>
+#include <cstdlib>
 #include <string>
 #include <iostream>
 #include <iomanip>
@@ -10,7 +11,11 @@
 #include "CLUtil.hpp"
 #include "constants.h"
 
-#define VTK_FORMAT  1
+#undef IDxyz
+#define IDxyz(x, y, z)              ((x) + ((y) * options.dim) + ((z) * options.dim * options.dim))
+
+
+#define VTK_FORMAT  0
 
 
 int timestamp = 0;
@@ -36,7 +41,7 @@ struct lbm_options {
         deviceID(-1),
         dim(8),
         viscosity(0.0089f),
-        velocity(0.005f),
+        velocity(5.00000000000000027756e-02f),
         iterations(10),
         every(-1),
         vti_path("./results"),
@@ -55,6 +60,15 @@ struct lbm_options {
     size_t u_size()   const { return u_dim()   * sizeof(float); }
     size_t rho_size() const { return rho_dim() * sizeof(float); }
     size_t map_size() const { return map_dim() * sizeof(int);   }
+
+    void print_options()
+    {
+        std::cout << "PlatformID = " << platformID << std::endl
+                  << "DeviceID   = " << deviceID   << std::endl
+                  << "dim        = " << dim        << std::endl
+                  << "viscosity  = " << viscosity  << std::endl
+                  << "velocity   = " << velocity   << std::endl;
+    }
 };
 
 lbm_options options;
@@ -122,13 +136,13 @@ static void process_args(int argc, char * argv[])
                 }
                 break;
             case 'v':
-                if ((options.viscosity = std::stoi(optarg)) < 0) {
+                if ((options.viscosity = std::atof(optarg)) < 0) {
                     std::cerr << "Please enter a valid viscosity value" << std::endl;
                     exit(1);
                 }
                 break;
             case 'u':
-                options.velocity = std::stoi(optarg);
+                options.velocity = std::atof(optarg);
                 break;
             case 'i':
                 if ((options.iterations = std::stoi(optarg)) < 0) {
@@ -237,34 +251,34 @@ static void dump_f(const cl::CommandQueue & queue,
 
     for (int z = 0; z < options.dim; ++z) {
         for (int y = 0; y < options.dim; ++y) {
-            dump << "          ";
+            dump << "        ";
             for (int q = 0; q < Q; ++q) {
-                dump << std::setw(7) << q << " ";
+                dump << std::setw(8) << q << " ";
             }
             dump << std::endl;
 
             for (int x = 0; x < options.dim; ++x) {
                 const int index = IDxyz(x, y, z);
-                dump << "(" << x << ", " << y << ", " << z << ") "
-                     << std::fixed << std::setw(7) << std::setprecision(5) << f_val[IDxyzw(index,  0)] << " "
-                     << std::fixed << std::setw(7) << std::setprecision(5) << f_val[IDxyzw(index,  1)] << " "
-                     << std::fixed << std::setw(7) << std::setprecision(5) << f_val[IDxyzw(index,  2)] << " "
-                     << std::fixed << std::setw(7) << std::setprecision(5) << f_val[IDxyzw(index,  3)] << " "
-                     << std::fixed << std::setw(7) << std::setprecision(5) << f_val[IDxyzw(index,  4)] << " "
-                     << std::fixed << std::setw(7) << std::setprecision(5) << f_val[IDxyzw(index,  5)] << " "
-                     << std::fixed << std::setw(7) << std::setprecision(5) << f_val[IDxyzw(index,  6)] << " "
-                     << std::fixed << std::setw(7) << std::setprecision(5) << f_val[IDxyzw(index,  7)] << " "
-                     << std::fixed << std::setw(7) << std::setprecision(5) << f_val[IDxyzw(index,  8)] << " "
-                     << std::fixed << std::setw(7) << std::setprecision(5) << f_val[IDxyzw(index,  9)] << " "
-                     << std::fixed << std::setw(7) << std::setprecision(5) << f_val[IDxyzw(index, 10)] << " "
-                     << std::fixed << std::setw(7) << std::setprecision(5) << f_val[IDxyzw(index, 11)] << " "
-                     << std::fixed << std::setw(7) << std::setprecision(5) << f_val[IDxyzw(index, 12)] << " "
-                     << std::fixed << std::setw(7) << std::setprecision(5) << f_val[IDxyzw(index, 13)] << " "
-                     << std::fixed << std::setw(7) << std::setprecision(5) << f_val[IDxyzw(index, 14)] << " "
-                     << std::fixed << std::setw(7) << std::setprecision(5) << f_val[IDxyzw(index, 15)] << " "
-                     << std::fixed << std::setw(7) << std::setprecision(5) << f_val[IDxyzw(index, 16)] << " "
-                     << std::fixed << std::setw(7) << std::setprecision(5) << f_val[IDxyzw(index, 17)] << " "
-                     << std::fixed << std::setw(7) << std::setprecision(5) << f_val[IDxyzw(index, 18)] << " "
+                dump << "(" << x << "," << y << "," << z << ") "
+                     << std::fixed << std::setw(8) << std::setprecision(6) << f_val[IDxyzw(index,  0)] << " "
+                     << std::fixed << std::setw(8) << std::setprecision(6) << f_val[IDxyzw(index,  1)] << " "
+                     << std::fixed << std::setw(8) << std::setprecision(6) << f_val[IDxyzw(index,  2)] << " "
+                     << std::fixed << std::setw(8) << std::setprecision(6) << f_val[IDxyzw(index,  3)] << " "
+                     << std::fixed << std::setw(8) << std::setprecision(6) << f_val[IDxyzw(index,  4)] << " "
+                     << std::fixed << std::setw(8) << std::setprecision(6) << f_val[IDxyzw(index,  5)] << " "
+                     << std::fixed << std::setw(8) << std::setprecision(6) << f_val[IDxyzw(index,  6)] << " "
+                     << std::fixed << std::setw(8) << std::setprecision(6) << f_val[IDxyzw(index,  7)] << " "
+                     << std::fixed << std::setw(8) << std::setprecision(6) << f_val[IDxyzw(index,  8)] << " "
+                     << std::fixed << std::setw(8) << std::setprecision(6) << f_val[IDxyzw(index,  9)] << " "
+                     << std::fixed << std::setw(8) << std::setprecision(6) << f_val[IDxyzw(index, 10)] << " "
+                     << std::fixed << std::setw(8) << std::setprecision(6) << f_val[IDxyzw(index, 11)] << " "
+                     << std::fixed << std::setw(8) << std::setprecision(6) << f_val[IDxyzw(index, 12)] << " "
+                     << std::fixed << std::setw(8) << std::setprecision(6) << f_val[IDxyzw(index, 13)] << " "
+                     << std::fixed << std::setw(8) << std::setprecision(6) << f_val[IDxyzw(index, 14)] << " "
+                     << std::fixed << std::setw(8) << std::setprecision(6) << f_val[IDxyzw(index, 15)] << " "
+                     << std::fixed << std::setw(8) << std::setprecision(6) << f_val[IDxyzw(index, 16)] << " "
+                     << std::fixed << std::setw(8) << std::setprecision(6) << f_val[IDxyzw(index, 17)] << " "
+                     << std::fixed << std::setw(8) << std::setprecision(6) << f_val[IDxyzw(index, 18)] << " "
                      << std::endl;
             }
             dump << std::endl;
@@ -367,6 +381,7 @@ static void store_vti(const cl::CommandQueue & queue,
 
 
 static void processData(const cl::CommandQueue & queue,
+                        const cl::Kernel & prestreaming,
                         const cl::Kernel & computeMacro,
                         const cl::Kernel & updateBoundary,
                         const cl::Kernel & collision,
@@ -374,39 +389,24 @@ static void processData(const cl::CommandQueue & queue,
                         const cl::Buffer & rho,
                         const cl::Buffer & u,
                         float * rho_val,
-                        float * u_val)
+                        float * u_val,
+                        const cl::Buffer & f,
+                        float * f_val)
 {
     cl::NDRange gws = cl::NDRange(options.dim, options.dim, options.dim);
-
     try {
-        cl::Event event_computeMacro;
-        cl::Event event_updateBoundary;
-        cl::Event event_collision;
+        cl::Event event_prestreaming;
         cl::Event event_streaming;
 
         CLUCheckError(
-            queue.enqueueNDRangeKernel(computeMacro, cl::NullRange, gws, cl::NullRange, NULL, &event_computeMacro),
-            "computeMacro",
+            queue.enqueueNDRangeKernel(prestreaming, cl::NullRange, gws, cl::NullRange, NULL, &event_prestreaming),
+            "prestreaming",
             true
         );
-        totalTime += CLUEventPrintStats("  computeMacro", event_computeMacro);
+        totalTime += CLUEventPrintStats("  prestreaming", event_prestreaming);
 
         // TODO: check the condition 
         if ((timestamp - 1) % options.every == 0) store_vti(queue, rho, u, rho_val, u_val);
-
-        CLUCheckError(
-            queue.enqueueNDRangeKernel(updateBoundary, cl::NullRange, gws, cl::NullRange, NULL, &event_updateBoundary),
-            "updateBoundary",
-            true
-        );
-        totalTime += CLUEventPrintStats("updateBoundary", event_updateBoundary);
-
-        CLUCheckError(
-            queue.enqueueNDRangeKernel(collision, cl::NullRange, gws, cl::NullRange, NULL, &event_collision),
-            "collision",
-            true
-        );
-        totalTime += CLUEventPrintStats("     collision", event_collision);
 
         CLUCheckError(
             queue.enqueueNDRangeKernel(streaming, cl::NullRange, gws, cl::NullRange, NULL, &event_streaming),
@@ -415,9 +415,54 @@ static void processData(const cl::CommandQueue & queue,
         );
         totalTime += CLUEventPrintStats("     streaming", event_streaming);
 
+        if(options.dump_f) dump_f(queue, f, f_val);
+
     } catch (cl::Error err) {
         CLUErrorPrint(err, true);
     }
+
+    // try {
+    //     cl::Event event_computeMacro;
+    //     cl::Event event_updateBoundary;
+    //     cl::Event event_collision;
+    //     cl::Event event_streaming;
+
+    //     CLUCheckError(
+    //         queue.enqueueNDRangeKernel(computeMacro, cl::NullRange, gws, cl::NullRange, NULL, &event_computeMacro),
+    //         "computeMacro",
+    //         true
+    //     );
+    //     totalTime += CLUEventPrintStats("  computeMacro", event_computeMacro);
+
+    //     // TODO: check the condition 
+    //     if ((timestamp - 1) % options.every == 0) store_vti(queue, rho, u, rho_val, u_val);
+
+    //     CLUCheckError(
+    //         queue.enqueueNDRangeKernel(updateBoundary, cl::NullRange, gws, cl::NullRange, NULL, &event_updateBoundary),
+    //         "updateBoundary",
+    //         true
+    //     );
+    //     totalTime += CLUEventPrintStats("updateBoundary", event_updateBoundary);
+
+    //     CLUCheckError(
+    //         queue.enqueueNDRangeKernel(collision, cl::NullRange, gws, cl::NullRange, NULL, &event_collision),
+    //         "collision",
+    //         true
+    //     );
+    //     totalTime += CLUEventPrintStats("     collision", event_collision);
+
+    //     CLUCheckError(
+    //         queue.enqueueNDRangeKernel(streaming, cl::NullRange, gws, cl::NullRange, NULL, &event_streaming),
+    //         "streaming",
+    //         true
+    //     );
+    //     totalTime += CLUEventPrintStats("     streaming", event_streaming);
+
+    //     if(options.dump_f) dump_f(queue, f, f_val);
+
+    // } catch (cl::Error err) {
+    //     CLUErrorPrint(err, true);
+    // }
 }
 
 int main(int argc, char * argv[])
@@ -425,6 +470,8 @@ int main(int argc, char * argv[])
 
     // ARGS
     process_args(argc, argv);
+
+    options.print_options();
 
     float * rho_val = NULL;
     float * u_val = NULL;
@@ -461,6 +508,8 @@ int main(int argc, char * argv[])
     optionsBuilder << "-cl-fast-relaxed-math ";
     // optionsBuilder << "-cl-denorms-are-zero ";
     optionsBuilder << "-DDIM=" << options.dim << " ";
+    optionsBuilder << "-DVISC=" << options.viscosity << " ";
+    optionsBuilder << "-DVEL=" << options.velocity << " ";
     std::cout << "Kernels options: " << optionsBuilder.str() << std::endl;
 
     CLUBuildProgram(program, context, device, "kernels.cl", optionsBuilder.str());
@@ -474,6 +523,9 @@ int main(int argc, char * argv[])
     cl::Kernel      collision_swap(program, "collision");
     cl::Kernel           streaming(program, "streaming");
     cl::Kernel      streaming_swap(program, "streaming");
+
+    cl::Kernel      prestreaming(program, "prestreaming");
+    cl::Kernel prestreaming_swap(program, "prestreaming");
 
     cl_int err;
 
@@ -543,6 +595,18 @@ int main(int argc, char * argv[])
         streaming_swap.setArg(2, map);
 
 
+        // 0
+        prestreaming.setArg(0, f_collide);
+        prestreaming.setArg(1, rho);
+        prestreaming.setArg(2, u);
+        prestreaming.setArg(3, map);
+        // 1
+        prestreaming_swap.setArg(0, f_stream);
+        prestreaming_swap.setArg(1, rho);
+        prestreaming_swap.setArg(2, u);
+        prestreaming_swap.setArg(3, map);
+
+
         // initLBM
         cl::Event event_initLBM;
         cl::NDRange gws = cl::NDRange(options.dim, options.dim, options.dim);
@@ -553,6 +617,8 @@ int main(int argc, char * argv[])
         );
         totalTime += CLUEventPrintStats("initLBM", event_initLBM);
 
+        if (options.dump_map)  dump_map(queue, map, map_val);
+        if (options.dump_f)    dump_f(queue, f_collide, f_val);
         if (options.store_vti) store_vti(queue, rho, u, rho_val, u_val);
         timestamp++;
 
@@ -560,15 +626,12 @@ int main(int argc, char * argv[])
         CLUErrorPrint(err, true);
     }
 
-    if (options.dump_map) dump_map(queue, map, map_val);
-
-    std::cout << "initLBM completed!" << std::endl;
 
     while (timestamp <= options.iterations) {
 
         if ((timestamp - 1) % 2 == 0) {
-            if(options.dump_f) dump_f(queue, f_collide, f_val);
             processData(queue,
+                        prestreaming,
                         computeMacro,
                         updateBoundary,
                         collision,
@@ -576,10 +639,12 @@ int main(int argc, char * argv[])
                         rho,
                         u,
                         rho_val,
-                        u_val);
+                        u_val,
+                        f_stream,
+                        f_val);
         } else {
-            if(options.dump_f) dump_f(queue, f_stream, f_val);
             processData(queue,
+                        prestreaming_swap,
                         computeMacro_swap,
                         updateBoundary_swap,
                         collision_swap,
@@ -587,7 +652,9 @@ int main(int argc, char * argv[])
                         rho,
                         u,
                         rho_val,
-                        u_val);
+                        u_val,
+                        f_collide,
+                        f_val);
         }
         timestamp++;
     }

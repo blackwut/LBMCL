@@ -9,6 +9,14 @@
 #define DIM                         8
 #endif
 
+#ifndef VEL
+#define VEL 5.00000000000000027756e-02f//0.05f
+#endif
+
+#ifndef VISC
+#define VISC 0.0089f
+#endif
+
 #define DIM_X                       DIM
 #define DIM_Y                       DIM
 #define DIM_Z                       DIM
@@ -20,7 +28,7 @@
 #define CELL_INITIAL_VELOCITY_Y     0.0f
 #define CELL_INITIAL_VELOCITY_Z     0.0f
 
-#define VISCOSITY                   0.0089f
+#define VISCOSITY                   VISC//0.0089f
 #define TAU                         ((3.0f * VISCOSITY) / (DELTA_T * DELTA_X * DELTA_X) + 0.5f)
 #define INV_TAU                     1.89861401177140698415e+00f
 
@@ -33,6 +41,8 @@
 #define IDxyz(x, y, z)              ((x) + ((y) * DIM_X) + ((z) * DIM_X * DIM_Y))
 #define IDxyzw(id, w)               ((id) * Q + (w))
 
+#define IDXYZW(x, y, z, w)          (((x) + ((y) * DIM_X) + ((z) * DIM_X * DIM_Y)) * Q + (w))
+
 // E_X
 // 0   1   0  -1   0   0   0   1  -1  -1   1   1   0  -1   0   1   0  -1   0
 // E_Y
@@ -40,81 +50,81 @@
 // E_Z
 // 0   0   0   0   0  -1   1   0   0   0   0  -1  -1  -1  -1   1   1   1   1
 
-#define E0_X    0
-#define E0_Y    0
-#define E0_Z    0
+#define E0_X    (+0)
+#define E0_Y    (+0)
+#define E0_Z    (+0)
 
-#define E1_X    1
-#define E1_Y    0
-#define E1_Z    0
+#define E1_X    (+1)
+#define E1_Y    (+0)
+#define E1_Z    (+0)
 
-#define E2_X    0
-#define E2_Y    1
-#define E2_Z    0
+#define E2_X    (+0)
+#define E2_Y    (+1)
+#define E2_Z    (+0)
 
-#define E3_X    -1
-#define E3_Y    0
-#define E3_Z    0
+#define E3_X    (-1)
+#define E3_Y    (+0)
+#define E3_Z    (+0)
 
-#define E4_X    0
-#define E4_Y    -1
-#define E4_Z    0
+#define E4_X    (+0)
+#define E4_Y    (-1)
+#define E4_Z    (+0)
 
-#define E5_X    0
-#define E5_Y    0
-#define E5_Z    -1
+#define E5_X    (+0)
+#define E5_Y    (+0)
+#define E5_Z    (-1)
 
-#define E6_X    0
-#define E6_Y    0
-#define E6_Z    1
+#define E6_X    (+0)
+#define E6_Y    (+0)
+#define E6_Z    (+1)
 
-#define E7_X    1
-#define E7_Y    1
-#define E7_Z    0
+#define E7_X    (+1)
+#define E7_Y    (+1)
+#define E7_Z    (+0)
 
-#define E8_X    -1
-#define E8_Y    1
-#define E8_Z    0
+#define E8_X    (-1)
+#define E8_Y    (+1)
+#define E8_Z    (+0)
 
-#define E9_X    -1
-#define E9_Y    -1
-#define E9_Z    0
+#define E9_X    (-1)
+#define E9_Y    (-1)
+#define E9_Z    (+0)
 
-#define E10_X   1
-#define E10_Y   -1
-#define E10_Z   0
+#define E10_X   (+1)
+#define E10_Y   (-1)
+#define E10_Z   (+0)
 
-#define E11_X   1
-#define E11_Y   0
-#define E11_Z   -1
+#define E11_X   (+1)
+#define E11_Y   (+0)
+#define E11_Z   (-1)
 
-#define E12_X   0
-#define E12_Y   1
-#define E12_Z   -1
+#define E12_X   (+0)
+#define E12_Y   (+1)
+#define E12_Z   (-1)
 
-#define E13_X   -1
-#define E13_Y   0
-#define E13_Z   -1
+#define E13_X   (-1)
+#define E13_Y   (+0)
+#define E13_Z   (-1)
 
-#define E14_X   0
-#define E14_Y   -1
-#define E14_Z   -1
+#define E14_X   (+0)
+#define E14_Y   (-1)
+#define E14_Z   (-1)
 
-#define E15_X   1
-#define E15_Y   0
-#define E15_Z   1
+#define E15_X   (+1)
+#define E15_Y   (+0)
+#define E15_Z   (+1)
 
-#define E16_X   0
-#define E16_Y   1
-#define E16_Z   1
+#define E16_X   (+0)
+#define E16_Y   (+1)
+#define E16_Z   (+1)
 
-#define E17_X   -1
-#define E17_Y   0
-#define E17_Z   1
+#define E17_X   (-1)
+#define E17_Y   (+0)
+#define E17_Z   (+1)
 
-#define E18_X   0
-#define E18_Y   -1
-#define E18_Z   1
+#define E18_X   (+0)
+#define E18_Y   (-1)
+#define E18_Z   (+1)
 
 
 #define OMEGA_0     (1.0f /  3.0f)
@@ -236,16 +246,16 @@
 
 
 #define UNROLL_19() \
-    UNROLL_X(0)     \
-    UNROLL_X(1)     \
-    UNROLL_X(2)     \
-    UNROLL_X(3)     \
-    UNROLL_X(4)     \
-    UNROLL_X(5)     \
-    UNROLL_X(6)     \
-    UNROLL_X(7)     \
-    UNROLL_X(8)     \
-    UNROLL_X(9)     \
+    UNROLL_X( 0)    \
+    UNROLL_X( 1)    \
+    UNROLL_X( 2)    \
+    UNROLL_X( 3)    \
+    UNROLL_X( 4)    \
+    UNROLL_X( 5)    \
+    UNROLL_X( 6)    \
+    UNROLL_X( 7)    \
+    UNROLL_X( 8)    \
+    UNROLL_X( 9)    \
     UNROLL_X(10)    \
     UNROLL_X(11)    \
     UNROLL_X(12)    \
@@ -268,6 +278,12 @@
     UNROLL_X(13)         \
     UNROLL_X(14)
 
+
+// Bhatnagar-Gross-Kroop approximation collision operator
+inline float compute_bgk(const float f, const float f_eq)
+{
+    return f + INV_TAU * (f_eq - f);
+}
 
 inline int is_fluid(const int cell_type)
 {
@@ -292,6 +308,11 @@ inline int is_boundary(const int cell_type)
 inline int is_moving(const int cell_type)
 {
     return (cell_type == MOVING_BOUNDARY);
+}
+
+inline int is_bounceback(const int cell_type)
+{
+    return (cell_type & ((LEFT | RIGHT | BOTTOM | TOP | BACK | FRONT) & ~MOVING_BOUNDARY));
 }
 
 #endif

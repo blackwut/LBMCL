@@ -34,7 +34,7 @@ test32: $(TARGET)
 	@ $(RM) $(FOLDER)/map*.dump
 	@ $(RM) $(FOLDER)/f_*.dump
 	@ $(RM) $(FOLDER)/lbmcl.*.vti
-	@ ./lbmcl -P0 -D2 -d32 -v0.0089 -u5.00000000000000027756e-02f -i500 -e20 -k /Volumes/RamDisk
+	@ ./lbmcl -P0 -D2 -d32 -v0.0089 -u0.05 -i500 -e20 -k /Volumes/RamDisk
 
 testcpu: $(TARGET_CPU)
 	$(RM) $(FOLDER)/lbmcl.*

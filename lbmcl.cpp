@@ -15,7 +15,7 @@
 #define IDxyz(x, y, z)              ((x) + ((y) * options.dim) + ((z) * options.dim * options.dim))
 
 
-#define VTK_FORMAT  0
+#define VTK_FORMAT  1
 
 
 int timestamp = 0;
@@ -41,7 +41,7 @@ struct lbm_options {
         deviceID(-1),
         dim(8),
         viscosity(0.0089f),
-        velocity(5.00000000000000027756e-02f),
+        velocity(0.05f),
         iterations(10),
         every(-1),
         vti_path("./results"),
@@ -51,7 +51,7 @@ struct lbm_options {
         dump_f(false)
     {}
 
-    size_t f_dim()   const { return (dim * dim * dim * Q); }
+    size_t f_dim()   const { return (dim * dim * dim * Q_DIM); }
     size_t u_dim()   const { return (dim * dim * dim * D); }
     size_t rho_dim() const { return (dim * dim * dim); }
     size_t map_dim() const { return (dim * dim * dim); }
@@ -259,27 +259,11 @@ static void dump_f(const cl::CommandQueue & queue,
 
             for (int x = 0; x < options.dim; ++x) {
                 const int index = IDxyz(x, y, z);
-                dump << "(" << x << "," << y << "," << z << ") "
-                     << std::fixed << std::setw(8) << std::setprecision(6) << f_val[IDxyzw(index,  0)] << " "
-                     << std::fixed << std::setw(8) << std::setprecision(6) << f_val[IDxyzw(index,  1)] << " "
-                     << std::fixed << std::setw(8) << std::setprecision(6) << f_val[IDxyzw(index,  2)] << " "
-                     << std::fixed << std::setw(8) << std::setprecision(6) << f_val[IDxyzw(index,  3)] << " "
-                     << std::fixed << std::setw(8) << std::setprecision(6) << f_val[IDxyzw(index,  4)] << " "
-                     << std::fixed << std::setw(8) << std::setprecision(6) << f_val[IDxyzw(index,  5)] << " "
-                     << std::fixed << std::setw(8) << std::setprecision(6) << f_val[IDxyzw(index,  6)] << " "
-                     << std::fixed << std::setw(8) << std::setprecision(6) << f_val[IDxyzw(index,  7)] << " "
-                     << std::fixed << std::setw(8) << std::setprecision(6) << f_val[IDxyzw(index,  8)] << " "
-                     << std::fixed << std::setw(8) << std::setprecision(6) << f_val[IDxyzw(index,  9)] << " "
-                     << std::fixed << std::setw(8) << std::setprecision(6) << f_val[IDxyzw(index, 10)] << " "
-                     << std::fixed << std::setw(8) << std::setprecision(6) << f_val[IDxyzw(index, 11)] << " "
-                     << std::fixed << std::setw(8) << std::setprecision(6) << f_val[IDxyzw(index, 12)] << " "
-                     << std::fixed << std::setw(8) << std::setprecision(6) << f_val[IDxyzw(index, 13)] << " "
-                     << std::fixed << std::setw(8) << std::setprecision(6) << f_val[IDxyzw(index, 14)] << " "
-                     << std::fixed << std::setw(8) << std::setprecision(6) << f_val[IDxyzw(index, 15)] << " "
-                     << std::fixed << std::setw(8) << std::setprecision(6) << f_val[IDxyzw(index, 16)] << " "
-                     << std::fixed << std::setw(8) << std::setprecision(6) << f_val[IDxyzw(index, 17)] << " "
-                     << std::fixed << std::setw(8) << std::setprecision(6) << f_val[IDxyzw(index, 18)] << " "
-                     << std::endl;
+                dump << "(" << x << "," << y << "," << z << ") ";
+                for (int q = 0; q < Q; ++q) {
+                    dump << std::fixed << std::setw(8) << std::setprecision(6) << f_val[IDxyzw(index,  q)] << " ";
+                }
+                dump << std::endl;
             }
             dump << std::endl;
         }
@@ -382,9 +366,6 @@ static void store_vti(const cl::CommandQueue & queue,
 
 static void processData(const cl::CommandQueue & queue,
                         const cl::Kernel & prestreaming,
-                        const cl::Kernel & computeMacro,
-                        const cl::Kernel & updateBoundary,
-                        const cl::Kernel & collision,
                         const cl::Kernel & streaming,
                         const cl::Buffer & rho,
                         const cl::Buffer & u,
@@ -393,13 +374,14 @@ static void processData(const cl::CommandQueue & queue,
                         const cl::Buffer & f,
                         float * f_val)
 {
+    cl::NDRange lws = cl::NDRange(options.dim, 1, 1);
     cl::NDRange gws = cl::NDRange(options.dim, options.dim, options.dim);
     try {
         cl::Event event_prestreaming;
         cl::Event event_streaming;
 
         CLUCheckError(
-            queue.enqueueNDRangeKernel(prestreaming, cl::NullRange, gws, cl::NullRange, NULL, &event_prestreaming),
+            queue.enqueueNDRangeKernel(prestreaming, cl::NullRange, gws, lws, NULL, &event_prestreaming),
             "prestreaming",
             true
         );
@@ -408,61 +390,18 @@ static void processData(const cl::CommandQueue & queue,
         // TODO: check the condition 
         if ((timestamp - 1) % options.every == 0) store_vti(queue, rho, u, rho_val, u_val);
 
-        CLUCheckError(
-            queue.enqueueNDRangeKernel(streaming, cl::NullRange, gws, cl::NullRange, NULL, &event_streaming),
-            "streaming",
-            true
-        );
-        totalTime += CLUEventPrintStats("     streaming", event_streaming);
+        // CLUCheckError(
+        //     queue.enqueueNDRangeKernel(streaming, cl::NullRange, gws, lws, NULL, &event_streaming),
+        //     "streaming",
+        //     true
+        // );
+        // totalTime += CLUEventPrintStats("     streaming", event_streaming);
 
         if(options.dump_f) dump_f(queue, f, f_val);
 
     } catch (cl::Error err) {
         CLUErrorPrint(err, true);
     }
-
-    // try {
-    //     cl::Event event_computeMacro;
-    //     cl::Event event_updateBoundary;
-    //     cl::Event event_collision;
-    //     cl::Event event_streaming;
-
-    //     CLUCheckError(
-    //         queue.enqueueNDRangeKernel(computeMacro, cl::NullRange, gws, cl::NullRange, NULL, &event_computeMacro),
-    //         "computeMacro",
-    //         true
-    //     );
-    //     totalTime += CLUEventPrintStats("  computeMacro", event_computeMacro);
-
-    //     // TODO: check the condition 
-    //     if ((timestamp - 1) % options.every == 0) store_vti(queue, rho, u, rho_val, u_val);
-
-    //     CLUCheckError(
-    //         queue.enqueueNDRangeKernel(updateBoundary, cl::NullRange, gws, cl::NullRange, NULL, &event_updateBoundary),
-    //         "updateBoundary",
-    //         true
-    //     );
-    //     totalTime += CLUEventPrintStats("updateBoundary", event_updateBoundary);
-
-    //     CLUCheckError(
-    //         queue.enqueueNDRangeKernel(collision, cl::NullRange, gws, cl::NullRange, NULL, &event_collision),
-    //         "collision",
-    //         true
-    //     );
-    //     totalTime += CLUEventPrintStats("     collision", event_collision);
-
-    //     CLUCheckError(
-    //         queue.enqueueNDRangeKernel(streaming, cl::NullRange, gws, cl::NullRange, NULL, &event_streaming),
-    //         "streaming",
-    //         true
-    //     );
-    //     totalTime += CLUEventPrintStats("     streaming", event_streaming);
-
-    //     if(options.dump_f) dump_f(queue, f, f_val);
-
-    // } catch (cl::Error err) {
-    //     CLUErrorPrint(err, true);
-    // }
 }
 
 int main(int argc, char * argv[])
@@ -505,6 +444,7 @@ int main(int argc, char * argv[])
 
     std::stringstream optionsBuilder;
     optionsBuilder << "-Werror ";
+    optionsBuilder << "-I. ";
     optionsBuilder << "-cl-fast-relaxed-math ";
     // optionsBuilder << "-cl-denorms-are-zero ";
     optionsBuilder << "-DDIM=" << options.dim << " ";
@@ -514,18 +454,12 @@ int main(int argc, char * argv[])
 
     CLUBuildProgram(program, context, device, "kernels.cl", optionsBuilder.str());
 
-    cl::Kernel             initLBM(program, "init");
-    cl::Kernel        computeMacro(program, "computeMacro");
-    cl::Kernel   computeMacro_swap(program, "computeMacro");
-    cl::Kernel      updateBoundary(program, "boundaryConditions");
-    cl::Kernel updateBoundary_swap(program, "boundaryConditions");
-    cl::Kernel           collision(program, "collision");
-    cl::Kernel      collision_swap(program, "collision");
-    cl::Kernel           streaming(program, "streaming");
-    cl::Kernel      streaming_swap(program, "streaming");
-
+    cl::Kernel           initLBM(program, "init");
     cl::Kernel      prestreaming(program, "prestreaming");
     cl::Kernel prestreaming_swap(program, "prestreaming");
+    cl::Kernel         streaming(program, "streaming");
+    cl::Kernel    streaming_swap(program, "streaming");
+
 
     cl_int err;
 
@@ -552,59 +486,27 @@ int main(int argc, char * argv[])
         initLBM.setArg(3, u);
         initLBM.setArg(4, map);
 
-        // 0
-        computeMacro.setArg(0, f_collide);
-        computeMacro.setArg(1, rho);
-        computeMacro.setArg(2, u);
-        computeMacro.setArg(3, map);
         // 1
-        computeMacro_swap.setArg(0, f_stream);
-        computeMacro_swap.setArg(1, rho);
-        computeMacro_swap.setArg(2, u);
-        computeMacro_swap.setArg(3, map);
-
-        // 0
-        updateBoundary.setArg(0, f_collide);
-        updateBoundary.setArg(1, rho);
-        updateBoundary.setArg(2, u);
-        updateBoundary.setArg(3, map);
-        // 1
-        updateBoundary_swap.setArg(0, f_stream);
-        updateBoundary_swap.setArg(1, rho);
-        updateBoundary_swap.setArg(2, u);
-        updateBoundary_swap.setArg(3, map);
-
-        // 0
-        collision.setArg(0, f_collide);
-        collision.setArg(1, rho);
-        collision.setArg(2, u);
-        collision.setArg(3, map);
-        // 1
-        collision_swap.setArg(0, f_stream);
-        collision_swap.setArg(1, rho);
-        collision_swap.setArg(2, u);
-        collision_swap.setArg(3, map);
-
-        // 0
-        streaming.setArg(0, f_stream);
-        streaming.setArg(1, f_collide);
-        streaming.setArg(2, map);
-        // 1
-        streaming_swap.setArg(0, f_collide);
-        streaming_swap.setArg(1, f_stream);
-        streaming_swap.setArg(2, map);
-
-
-        // 0
         prestreaming.setArg(0, f_collide);
         prestreaming.setArg(1, rho);
         prestreaming.setArg(2, u);
         prestreaming.setArg(3, map);
-        // 1
+        prestreaming.setArg(4, f_stream);
+        // 0
         prestreaming_swap.setArg(0, f_stream);
         prestreaming_swap.setArg(1, rho);
         prestreaming_swap.setArg(2, u);
         prestreaming_swap.setArg(3, map);
+        prestreaming_swap.setArg(4, f_collide);
+
+        // 1
+        streaming.setArg(0, f_stream);
+        streaming.setArg(1, f_collide);
+        streaming.setArg(2, map);
+        // 0
+        streaming_swap.setArg(0, f_collide);
+        streaming_swap.setArg(1, f_stream);
+        streaming_swap.setArg(2, map);
 
 
         // initLBM
@@ -632,9 +534,6 @@ int main(int argc, char * argv[])
         if ((timestamp - 1) % 2 == 0) {
             processData(queue,
                         prestreaming,
-                        computeMacro,
-                        updateBoundary,
-                        collision,
                         streaming,
                         rho,
                         u,
@@ -645,9 +544,6 @@ int main(int argc, char * argv[])
         } else {
             processData(queue,
                         prestreaming_swap,
-                        computeMacro_swap,
-                        updateBoundary_swap,
-                        collision_swap,
                         streaming_swap,
                         rho,
                         u,

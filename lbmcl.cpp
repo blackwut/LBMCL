@@ -15,7 +15,9 @@
 #define IDxyz(x, y, z) ((x) + ((y) * options.dim) + ((z) * options.dim * options.dim))
 
 
-#define VTK_FORMAT  1
+#define VTK_FORMAT      1
+#define RESULTS_FOLDER "./results"
+
 
 
 int timestamp = 0;
@@ -44,9 +46,9 @@ struct lbm_options {
         velocity(0.05f),
         iterations(10),
         every(-1),
-        vti_path("./results"),
+        vti_path(RESULTS_FOLDER),
         store_vti(false),
-        dump_path("./results"),
+        dump_path(RESULTS_FOLDER),
         dump_map(false),
         dump_f(false)
     {}
@@ -115,7 +117,7 @@ static void print_help()
 
 static void process_args(int argc, char * argv[])
 {
-    const char * const short_opts = "P:D:d:v:u:i:e::k::p::mfh";
+    const char * const short_opts = "P:D:d:v:u:i:e:k:p::mfh";
     const option long_opts[] = {
             {"platform",   required_argument, nullptr, 'P'},
             {"device",     required_argument, nullptr, 'D'},
@@ -178,10 +180,11 @@ static void process_args(int argc, char * argv[])
                 }
                 break;
             case 'k':
+                printf("-k = %s\n", optarg);
                 options.vti_path = std::string(optarg);
                 if (options.vti_path.empty()) {
                     std::cout << "VTI files will be stored here" << std::endl;
-                    options.vti_path = ".";
+                    options.vti_path = RESULTS_FOLDER;
                 }
                 options.store_vti = true;
                 break;
@@ -189,7 +192,7 @@ static void process_args(int argc, char * argv[])
                 options.dump_path  = std::string(optarg);
                 if (options.dump_path.empty()) {
                     std::cout << "dump files will be stored here" << std::endl;
-                    options.dump_path = ".";
+                    options.dump_path = RESULTS_FOLDER;
                 }
                 break;
             case 'm':

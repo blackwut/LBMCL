@@ -114,7 +114,7 @@ static inline void CLUSelectPlatform(cl::Platform & platform,
 
     try {
         cl::Platform::get(&platforms);
-        while (selected_platform < 0 || selected_platform >= platforms.size()) {
+        while (selected_platform < 0 || (static_cast<std::size_t>(selected_platform) >= platforms.size())) {
                 int platform_id = 0;
                 for (cl::Platform & p : platforms) {
                     std::cout << "#" << platform_id++             << " "
@@ -142,7 +142,7 @@ static inline void CLUSelectDevice(cl::Device & device,
     try {
         platform.getDevices(CL_DEVICE_TYPE_GPU | CL_DEVICE_TYPE_CPU, &devices);
 
-        while (selected_device < 0 || selected_device >= devices.size()) {
+        while (selected_device < 0 || (static_cast<std::size_t>(selected_device) >= devices.size())) {
             int device_id = 0;
             for (cl::Device & d : devices) {
                 std::cout << "#" << device_id++

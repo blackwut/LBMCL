@@ -117,7 +117,8 @@ static void print_help()
 
 static void process_args(int argc, char * argv[])
 {
-    const char * const short_opts = "P:D:d:v:u:i:e:k:p::mfh";
+    opterr = 0;
+    const char * const short_opts = "P:D:d:v:u:i:e:k:p:mfh";
     const option long_opts[] = {
             {"platform",   required_argument, nullptr, 'P'},
             {"device",     required_argument, nullptr, 'D'},

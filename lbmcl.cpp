@@ -12,7 +12,7 @@
 #include "constants.h"
 
 #undef IDxyz
-#define IDxyz(x, y, z)              ((x) + ((y) * options.dim) + ((z) * options.dim * options.dim))
+#define IDxyz(x, y, z) ((x) + ((y) * options.dim) + ((z) * options.dim * options.dim))
 
 
 #define VTK_FORMAT  1
@@ -61,13 +61,34 @@ struct lbm_options {
     size_t rho_size() const { return rho_dim() * sizeof(float); }
     size_t map_size() const { return map_dim() * sizeof(int);   }
 
+    size_t device_memory_size_b() const
+    {
+        return f_size() * 2 + u_size() + rho_size() + map_size();
+    }
+
+    size_t device_memory_size_k() const
+    {
+        return device_memory_size_b() / (float)(1 << 10);
+    }
+
+    size_t device_memory_size_m() const
+    {
+        return device_memory_size_b() / (1 << 20);
+    }
+
     void print_options()
     {
-        std::cout << "PlatformID = " << platformID << std::endl
-                  << "DeviceID   = " << deviceID   << std::endl
-                  << "dim        = " << dim        << std::endl
-                  << "viscosity  = " << viscosity  << std::endl
-                  << "velocity   = " << velocity   << std::endl;
+        std::cout << "PlatformID       = " << platformID             << "\n"
+                  << "DeviceID         = " << deviceID               << "\n"
+                  << "dim              = " << dim                    << "\n"
+                  << "viscosity        = " << viscosity              << "\n"
+                  << "velocity         = " << velocity               << "\n"
+                  << "Device Mem. (KB) = " << device_memory_size_k() << "\n"
+                  << "Device Mem. (MB) = " << device_memory_size_m() << "\n"
+                  << "VTI PATH         = " << vti_path               << "\n"
+                  << "STORE VTI        = " << store_vti              << "\n"
+                  << "DUMP F           = " << dump_f                 << "\n"
+                  << "DUMP MAP         = " << dump_map               << "\n";
     }
 };
 
@@ -94,7 +115,7 @@ static void print_help()
 
 static void process_args(int argc, char * argv[])
 {
-    const char * const short_opts = "P:D:d:v:u:i:e:k:p:mfh";
+    const char * const short_opts = "P:D:d:v:u:i:e::k::p::mfh";
     const option long_opts[] = {
             {"platform",   required_argument, nullptr, 'P'},
             {"device",     required_argument, nullptr, 'D'},
@@ -102,7 +123,7 @@ static void process_args(int argc, char * argv[])
             {"viscosity",  required_argument, nullptr, 'v'},
             {"velocity",   required_argument, nullptr, 'u'},
             {"iterations", required_argument, nullptr, 'i'},
-            {"every",      required_argument, nullptr, 'e'},
+            {"every",      optional_argument, nullptr, 'e'},
             {"vti-path",   optional_argument, nullptr, 'k'},
             {"dump-path",  optional_argument, nullptr, 'p'},
             {"dump-map",   no_argument,       nullptr, 'm'},
@@ -198,7 +219,7 @@ static void dump_map(const cl::CommandQueue & queue,
             "dump_f",
             true
         );
-        totalTime += CLUEventPrintStats("      read_map", event_read_map);
+        totalTime += CLUEventPrintStats("        read_map", event_read_map);
     } catch (cl::Error err) {
         CLUErrorPrint(err, true);
     }
@@ -239,7 +260,7 @@ static void dump_f(const cl::CommandQueue & queue,
             "dump_f",
             true
         );
-        totalTime += CLUEventPrintStats("        read_f", event_read_f);
+        totalTime += CLUEventPrintStats("          read_f", event_read_f);
     } catch (cl::Error err) {
         CLUErrorPrint(err, true);
     }
@@ -289,7 +310,7 @@ static void store_vti(const cl::CommandQueue & queue,
             "readRho",
             true
         );
-        totalTime += CLUEventPrintStats("       readRho", event_read_rho);
+        totalTime += CLUEventPrintStats("         readRho", event_read_rho);
 
 
         CLUCheckError(
@@ -297,7 +318,7 @@ static void store_vti(const cl::CommandQueue & queue,
             "readU",
             true
         );
-        totalTime += CLUEventPrintStats("         readU", event_read_rho);
+        totalTime += CLUEventPrintStats("           readU", event_read_rho);
     } catch (cl::Error err) {
         CLUErrorPrint(err, true);
     }
@@ -305,7 +326,10 @@ static void store_vti(const cl::CommandQueue & queue,
 
     const size_t from = 1;
     const size_t to = options.dim - 1;
+
+#if VTK_FORMAT
     const size_t extent = to - from - 1;
+#endif
 
     std::stringstream filenameBuilder;
     filenameBuilder << options.vti_path << "/lbmcl." << std::setw(4) << std::setfill('0') << timestamp << ".vti";
@@ -365,8 +389,7 @@ static void store_vti(const cl::CommandQueue & queue,
 
 
 static void processData(const cl::CommandQueue & queue,
-                        const cl::Kernel & prestreaming,
-                        const cl::Kernel & streaming,
+                        const cl::Kernel & collideAndStream,
                         const cl::Buffer & rho,
                         const cl::Buffer & u,
                         float * rho_val,
@@ -377,27 +400,18 @@ static void processData(const cl::CommandQueue & queue,
     cl::NDRange lws = cl::NDRange(options.dim, 1, 1);
     cl::NDRange gws = cl::NDRange(options.dim, options.dim, options.dim);
     try {
-        cl::Event event_prestreaming;
-        cl::Event event_streaming;
+        cl::Event event_collideAndStream;
 
         CLUCheckError(
-            queue.enqueueNDRangeKernel(prestreaming, cl::NullRange, gws, lws, NULL, &event_prestreaming),
-            "prestreaming",
+            queue.enqueueNDRangeKernel(collideAndStream, cl::NullRange, gws, lws, NULL, &event_collideAndStream),
+            "collideAndStream",
             true
         );
-        totalTime += CLUEventPrintStats("  prestreaming", event_prestreaming);
+        totalTime += CLUEventPrintStats("collideAndStream", event_collideAndStream);
 
         // TODO: check the condition 
-        if ((timestamp - 1) % options.every == 0) store_vti(queue, rho, u, rho_val, u_val);
-
-        // CLUCheckError(
-        //     queue.enqueueNDRangeKernel(streaming, cl::NullRange, gws, lws, NULL, &event_streaming),
-        //     "streaming",
-        //     true
-        // );
-        // totalTime += CLUEventPrintStats("     streaming", event_streaming);
-
-        if(options.dump_f) dump_f(queue, f, f_val);
+        if (options.store_vti && ((timestamp - 1) % options.every == 0)) store_vti(queue, rho, u, rho_val, u_val);
+        if (options.dump_f) dump_f(queue, f, f_val);
 
     } catch (cl::Error err) {
         CLUErrorPrint(err, true);
@@ -406,10 +420,8 @@ static void processData(const cl::CommandQueue & queue,
 
 int main(int argc, char * argv[])
 {
-
     // ARGS
     process_args(argc, argv);
-
     options.print_options();
 
     float * rho_val = NULL;
@@ -446,7 +458,7 @@ int main(int argc, char * argv[])
     optionsBuilder << "-Werror ";
     optionsBuilder << "-I. ";
     optionsBuilder << "-cl-fast-relaxed-math ";
-    // optionsBuilder << "-cl-denorms-are-zero ";
+    optionsBuilder << "-cl-denorms-are-zero ";
     optionsBuilder << "-DDIM=" << options.dim << " ";
     optionsBuilder << "-DVISC=" << options.viscosity << " ";
     optionsBuilder << "-DVEL=" << options.velocity << " ";
@@ -454,12 +466,9 @@ int main(int argc, char * argv[])
 
     CLUBuildProgram(program, context, device, "kernels.cl", optionsBuilder.str());
 
-    cl::Kernel           initLBM(program, "init");
-    cl::Kernel      prestreaming(program, "prestreaming");
-    cl::Kernel prestreaming_swap(program, "prestreaming");
-    cl::Kernel         streaming(program, "streaming");
-    cl::Kernel    streaming_swap(program, "streaming");
-
+    cl::Kernel                initLBM(program, "init");
+    cl::Kernel      collideAndStream(program, "collideAndStream");
+    cl::Kernel collideAndStream_swap(program, "collideAndStream");
 
     cl_int err;
 
@@ -487,26 +496,17 @@ int main(int argc, char * argv[])
         initLBM.setArg(4, map);
 
         // 1
-        prestreaming.setArg(0, f_collide);
-        prestreaming.setArg(1, rho);
-        prestreaming.setArg(2, u);
-        prestreaming.setArg(3, map);
-        prestreaming.setArg(4, f_stream);
+        collideAndStream.setArg(0, f_collide);
+        collideAndStream.setArg(1, rho);
+        collideAndStream.setArg(2, u);
+        collideAndStream.setArg(3, map);
+        collideAndStream.setArg(4, f_stream);
         // 0
-        prestreaming_swap.setArg(0, f_stream);
-        prestreaming_swap.setArg(1, rho);
-        prestreaming_swap.setArg(2, u);
-        prestreaming_swap.setArg(3, map);
-        prestreaming_swap.setArg(4, f_collide);
-
-        // 1
-        streaming.setArg(0, f_stream);
-        streaming.setArg(1, f_collide);
-        streaming.setArg(2, map);
-        // 0
-        streaming_swap.setArg(0, f_collide);
-        streaming_swap.setArg(1, f_stream);
-        streaming_swap.setArg(2, map);
+        collideAndStream_swap.setArg(0, f_stream);
+        collideAndStream_swap.setArg(1, rho);
+        collideAndStream_swap.setArg(2, u);
+        collideAndStream_swap.setArg(3, map);
+        collideAndStream_swap.setArg(4, f_collide);
 
 
         // initLBM
@@ -517,7 +517,7 @@ int main(int argc, char * argv[])
             "initLBM",
             true
         );
-        totalTime += CLUEventPrintStats("initLBM", event_initLBM);
+        totalTime += CLUEventPrintStats("         initLBM", event_initLBM);
 
         if (options.dump_map)  dump_map(queue, map, map_val);
         if (options.dump_f)    dump_f(queue, f_collide, f_val);
@@ -533,8 +533,7 @@ int main(int argc, char * argv[])
 
         if ((timestamp - 1) % 2 == 0) {
             processData(queue,
-                        prestreaming,
-                        streaming,
+                        collideAndStream,
                         rho,
                         u,
                         rho_val,
@@ -543,8 +542,7 @@ int main(int argc, char * argv[])
                         f_val);
         } else {
             processData(queue,
-                        prestreaming_swap,
-                        streaming_swap,
+                        collideAndStream_swap,
                         rho,
                         u,
                         rho_val,

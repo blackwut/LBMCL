@@ -33,7 +33,7 @@
 
 #define VISCOSITY           VISC
 #define TAU                 ((3.0f * VISCOSITY) + 0.5f)
-#define INV_TAU             (1.0f / TAU)
+#define INV_TAU             1.89861401177140698415e+00f//(1.0f / TAU)
 
 
 #define E0_X    ( 0)

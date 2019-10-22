@@ -19,8 +19,6 @@
 #define RESULTS_FOLDER "./results"
 
 
-
-int timestamp = 0;
 double totalTime = 0.0;
 
 
@@ -255,7 +253,8 @@ static void dump_map(const cl::CommandQueue & queue,
 
 static void dump_f(const cl::CommandQueue & queue,
                    const cl::Buffer & f,
-                   float * f_val)
+                   float * f_val,
+                   size_t iteration)
 {
     try {
         cl::Event event_read_f;
@@ -270,7 +269,7 @@ static void dump_f(const cl::CommandQueue & queue,
     }
 
     std::stringstream filenameBuilder;
-    filenameBuilder << options.dump_path << "/f_" << std::setw(4) << std::setfill('0') << timestamp << ".dump";
+    filenameBuilder << options.dump_path << "/f_" << std::setw(4) << std::setfill('0') << iteration << ".dump";
     std::ofstream dump;
     dump.open(filenameBuilder.str());
 
@@ -303,7 +302,8 @@ static void store_vti(const cl::CommandQueue & queue,
                       const cl::Buffer & rho,
                       const cl::Buffer & u,
                       float * rho_val,
-                      float * u_val)
+                      float * u_val,
+                      size_t iteration)
 {
     cl::Event event_read_rho;
     cl::Event event_read_u;
@@ -336,7 +336,7 @@ static void store_vti(const cl::CommandQueue & queue,
 #endif
 
     std::stringstream filenameBuilder;
-    filenameBuilder << options.vti_path << "/lbmcl." << std::setw(4) << std::setfill('0') << timestamp << ".vti";
+    filenameBuilder << options.vti_path << "/lbmcl." << std::setw(4) << std::setfill('0') << iteration << ".vti";
     std::ofstream vtk;
     vtk.open(filenameBuilder.str());
 
@@ -393,13 +393,7 @@ static void store_vti(const cl::CommandQueue & queue,
 
 
 static void processData(const cl::CommandQueue & queue,
-                        const cl::Kernel & collideAndStream,
-                        const cl::Buffer & rho,
-                        const cl::Buffer & u,
-                        float * rho_val,
-                        float * u_val,
-                        const cl::Buffer & f,
-                        float * f_val)
+                        const cl::Kernel & collideAndStream)
 {
     cl::NDRange lws = cl::NDRange(options.dim, 1, 1);
     cl::NDRange gws = cl::NDRange(options.dim, options.dim, options.dim);
@@ -413,10 +407,6 @@ static void processData(const cl::CommandQueue & queue,
         );
         totalTime += CLUEventPrintStats("collideAndStream", event_collideAndStream);
 
-        // TODO: check the condition 
-        if (options.store_vti && ((timestamp - 1) % options.every == 0)) store_vti(queue, rho, u, rho_val, u_val);
-        if (options.dump_f) dump_f(queue, f, f_val);
-
     } catch (cl::Error err) {
         CLUErrorPrint(err, true);
     }
@@ -425,6 +415,7 @@ static void processData(const cl::CommandQueue & queue,
 int main(int argc, char * argv[])
 {
     // ARGS
+    size_t iteration = 0;
     process_args(argc, argv);
     options.print_options();
 
@@ -461,8 +452,9 @@ int main(int argc, char * argv[])
     std::stringstream optionsBuilder;
     optionsBuilder << "-Werror ";
     optionsBuilder << "-I. ";
-    optionsBuilder << "-cl-fast-relaxed-math ";
-    optionsBuilder << "-cl-denorms-are-zero ";
+    optionsBuilder << "-cl-single-precision-constant -cl-fast-relaxed-math ";
+    // optionsBuilder << "-cal-fast-relaxed-math ";
+    // optionsBuilder << "-cl-denorms-re-zero ";
     optionsBuilder << "-DDIM=" << options.dim << " ";
     optionsBuilder << "-DVISC=" << options.viscosity << " ";
     optionsBuilder << "-DVEL=" << options.velocity << " ";
@@ -524,37 +516,40 @@ int main(int argc, char * argv[])
         totalTime += CLUEventPrintStats("         initLBM", event_initLBM);
 
         if (options.dump_map)  dump_map(queue, map, map_val);
-        if (options.dump_f)    dump_f(queue, f_collide, f_val);
-        if (options.store_vti) store_vti(queue, rho, u, rho_val, u_val);
-        timestamp++;
+        if (options.dump_f)    dump_f(queue, f_collide, f_val, iteration);
+        if (options.store_vti) store_vti(queue, rho, u, rho_val, u_val, iteration);
 
     } catch (cl::Error err) {
         CLUErrorPrint(err, true);
     }
 
 
-    while (timestamp <= options.iterations) {
+    while (iteration <= options.iterations) {
 
-        if ((timestamp - 1) % 2 == 0) {
-            processData(queue,
-                        collideAndStream,
-                        rho,
-                        u,
-                        rho_val,
-                        u_val,
-                        f_stream,
-                        f_val);
-        } else {
-            processData(queue,
-                        collideAndStream_swap,
-                        rho,
-                        u,
-                        rho_val,
-                        u_val,
-                        f_collide,
-                        f_val);
+        int is_swap = (iteration & 1);
+
+        processData(queue, (is_swap ? collideAndStream_swap : collideAndStream));
+
+        if (options.store_vti && (iteration != 0) && (iteration % options.every == 0)) {
+            store_vti(queue, rho, u, rho_val, u_val, iteration);
         }
-        timestamp++;
+
+        iteration++;
+        if (options.dump_f) dump_f(queue, (is_swap ? f_collide : f_stream), f_val, iteration);
+
+        // if (iteration % 2 == 0) {
+        //     processData(queue, collideAndStream);
+        //     if (options.dump_f) dump_f(queue, f_stream, f_val, iteration + 1);
+        // } else {
+        //     processData(queue, collideAndStream_swap);
+        //     if (options.dump_f) dump_f(queue, f_collide, f_val, iteration + 1);
+        // }
+
+        // if (options.store_vti && (iteration != 0) && (iteration % options.every == 0)) {
+        //     store_vti(queue, rho, u, rho_val, u_val, iteration + 1);
+        // }
+
+        // iteration++;
     }
 
     std::cout << "Total time: "

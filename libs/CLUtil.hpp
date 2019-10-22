@@ -213,7 +213,7 @@ static inline void CLUBuildProgram(cl::Program & program,
 }
 
 static inline double CLUEventPrintStats(const std::string & name,
-                                      const cl::Event & event)
+                                        const cl::Event & event)
 {
     try {
         event.wait();

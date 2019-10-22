@@ -34,7 +34,7 @@ test: $(TARGET)
 	@ $(RM) $(FOLDER)/map*.dump
 	@ $(RM) $(FOLDER)/f_*.dump
 	@ $(RM) $(FOLDER)/lbmcl.*.vti
-	@ ./lbmcl -P$(PLATFORM) -D$(DEVICE) -d$(DIM_TEST) -v$(VISCOSITY) -u$(VELOCITY) -i5 -e1 -k $(FOLDER) -p $(FOLDER) -f
+	@ ./lbmcl -P$(PLATFORM) -D$(DEVICE) -d$(DIM_TEST) -v$(VISCOSITY) -u$(VELOCITY) -i10 -e1 -k $(FOLDER) -p $(FOLDER) -f
 
 test32: $(TARGET)
 	@ $(RM) $(FOLDER)/map*.dump

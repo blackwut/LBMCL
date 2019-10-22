@@ -2,13 +2,13 @@
 
 #define FLOAT_ORDER_SAILFISH    1
 
-#define COLLIDE_SCRATCH     (1 << 0)
-#define COLLIDE_SAILFISH    (1 << 1)
-#define COLLIDE_METHOD      COLLIDE_SAILFISH
+#define SCRATCH_METHOD      (1 << 0)
+#define SAILFISH_METHOD     (1 << 1)
 
-#define STREAMING_PUSH      (1 << 2)
-#define STREAMING_SAILFISH  (1 << 3)
-#define STREAMING_METHOD    STREAMING_SAILFISH
+#define BOUNCEBACK_METHOD   SAILFISH_METHOD
+#define COLLIDE_METHOD      SAILFISH_METHOD
+
+#define STREAMING_METHOD    SAILFISH_METHOD
 
 
 inline int get_cell_type(const int x, const int y, const int z)
@@ -58,7 +58,7 @@ void init(__global float * f_stream, __global float * f_collide, __global float 
     const float uy  = (is_moving_init(cell_type) ? INITIAL_VELOCITY_Y : 0.0f);
     const float uz  = (is_moving_init(cell_type) ? INITIAL_VELOCITY_Z : 0.0f);
 
-#if (COLLIDE_METHOD == COLLIDE_SCRATCH)
+#if (COLLIDE_METHOD == SCRATCH_METHOD)
     float eu = 0.0f;
     const float u2 = (ux * ux) + (uy * uy) + (uz * uz);
 #undef  UNROLL_X
@@ -67,7 +67,7 @@ void init(__global float * f_stream, __global float * f_collide, __global float 
     const float f##i = (rho * OMEGA_##i) * (1.0f + (3.0f * eu) + (4.5f * eu * eu) - (1.5f * u2));
     UNROLL_19();
 
-#elif (COLLIDE_METHOD == COLLIDE_SAILFISH)
+#elif (COLLIDE_METHOD == SAILFISH_METHOD)
     const float f0  = (OMEGA_0  * rho) * (-1.5 * (ux * ux) - 1.5 * (uy * uy) - 1.5 * (uz * uz))                             + (OMEGA_0  * rho);
     const float f1  = (OMEGA_1  * rho) * (ux * (3.0f * ux + 3.0f) - 1.5 * (uy * uy) - 1.5 * (uz * uz))                      + (OMEGA_1  * rho);
     const float f2  = (OMEGA_2  * rho) * (-1.5 * (ux * ux) + uy * (3.0f * uy + 3.0f) - 1.5 * (uz * uz))                     + (OMEGA_2  * rho);
@@ -170,7 +170,7 @@ void collideAndStream(__global float * f_collide, __global float * density, __gl
     /***   Boundary Conditions   ***/
     if (is_moving(cell_type)) {
 
-#if (COLLIDE_METHOD == COLLIDE_SCRATCH)
+#if (COLLIDE_METHOD == SCRATCH_METHOD)
         float eu = 0.0f;
         const float u2 = (ux * ux) + (uy * uy) + (uz * uz);
 
@@ -181,7 +181,7 @@ void collideAndStream(__global float * f_collide, __global float * density, __gl
         UNROLL_19();
 #endif
 
-#if (COLLIDE_METHOD == COLLIDE_SAILFISH)
+#if (COLLIDE_METHOD == SAILFISH_METHOD)
         f0  = (OMEGA_0  * rho) * (-1.5 * (ux * ux) - 1.5 * (uy * uy) - 1.5 * (uz * uz))                             + (OMEGA_0  * rho);
         f1  = (OMEGA_1  * rho) * (ux * (3.0f * ux + 3.0f) - 1.5 * (uy * uy) - 1.5 * (uz * uz))                      + (OMEGA_1  * rho);
         f2  = (OMEGA_2  * rho) * (-1.5 * (ux * ux) + uy * (3.0f * uy + 3.0f) - 1.5 * (uz * uz))                     + (OMEGA_2  * rho);
@@ -204,6 +204,8 @@ void collideAndStream(__global float * f_collide, __global float * density, __gl
 #endif
 
     } else if (is_bounceback(cell_type)) {
+
+#if (BOUNCEBACK_METHOD == SCRATCH_METHOD)
 #undef  UNROLL_X
 #define UNROLL_X(i)                \
         {                          \
@@ -212,13 +214,52 @@ void collideAndStream(__global float * f_collide, __global float * density, __gl
             F_S(i) = tmp;          \
         }
         UNROLL_HALF_19();
+#endif
+
+#if (BOUNCEBACK_METHOD == SAILFISH_METHOD)
+        float tmp = f1;
+        f1 = f3;
+        f3 = tmp;
+
+        tmp = f2;
+        f2 = f4;
+        f4 = tmp;
+
+        tmp = f6;
+        f6 = f5;
+        f5 = tmp;
+
+        tmp = f7;
+        f7 = f9;
+        f9 = tmp;
+
+        tmp = f8;
+        f8 = f10;
+        f10 = tmp;
+        
+        tmp = f16;
+        f16 = f14;
+        f14 = tmp;
+
+        tmp = f18;
+        f18 = f12;
+        f12 = tmp;
+
+        tmp = f15;
+        f15 = f13;
+        f13 = tmp;
+
+        tmp = f17;
+        f17 = f11;
+        f11 = tmp;
+#endif
     }
 
 
     /***   Collision   ***/
     if (is_collision(cell_type)) {
 
-#if (COLLIDE_METHOD == COLLIDE_SCRATCH)
+#if (COLLIDE_METHOD == SCRATCH_METHOD)
         float eu = 0.0f;
         const float u2 = (ux * ux) + (uy * uy) + (uz * uz);
 #undef  UNROLL_X
@@ -228,26 +269,46 @@ void collideAndStream(__global float * f_collide, __global float * density, __gl
         UNROLL_19();
 #endif
 
-#if (COLLIDE_METHOD == COLLIDE_SAILFISH)
-        const float fnew0  = (OMEGA_0  * rho) * (-1.5 * (ux * ux) - 1.5 * (uy * uy) - 1.5 * (uz * uz))                             + (OMEGA_0  * rho);
-        const float fnew1  = (OMEGA_1  * rho) * (ux * (3.0f * ux + 3.0f) - 1.5 * (uy * uy) - 1.5 * (uz * uz))                      + (OMEGA_1  * rho);
-        const float fnew2  = (OMEGA_2  * rho) * (-1.5 * (ux * ux) + uy * (3.0f * uy + 3.0f) - 1.5 * (uz * uz))                     + (OMEGA_2  * rho);
-        const float fnew3  = (OMEGA_3  * rho) * (ux * (3.0f * ux - 3.0f) - 1.5 * (uy * uy) - 1.5 * (uz * uz))                      + (OMEGA_3  * rho);
-        const float fnew4  = (OMEGA_4  * rho) * (-1.5 * (ux * ux) + uy * (3.0f * uy - 3.0f) - 1.5 * (uz * uz))                     + (OMEGA_4  * rho);
-        const float fnew5  = (OMEGA_5  * rho) * (-1.5 * (ux * ux) - 1.5 * (uy * uy) + uz * (3.0f * uz - 3.0f))                     + (OMEGA_5  * rho);
-        const float fnew6  = (OMEGA_6  * rho) * (-1.5 * (ux * ux) - 1.5 * (uy * uy) + uz * (3.0f * uz + 3.0f))                     + (OMEGA_6  * rho);
-        const float fnew7  = (OMEGA_7  * rho) * (ux * (3.0f * ux + 9.0f * uy + 3.0f) + uy * (3.0f * uy + 3.0f) - 1.5 * (uz * uz))  + (OMEGA_7  * rho);
-        const float fnew8  = (OMEGA_8  * rho) * (ux * (3.0f * ux - 9.0f * uy - 3.0f) + uy * (3.0f * uy + 3.0f) - 1.5 * (uz * uz))  + (OMEGA_8  * rho);
-        const float fnew9  = (OMEGA_9  * rho) * (ux * (3.0f * ux + 9.0f * uy - 3.0f) + uy * (3.0f * uy - 3.0f) - 1.5 * (uz * uz))  + (OMEGA_9  * rho);
-        const float fnew10 = (OMEGA_10 * rho) * (ux * (3.0f * ux - 9.0f * uy + 3.0f) + uy * (3.0f * uy - 3.0f) - 1.5 * (uz * uz))  + (OMEGA_10 * rho);
-        const float fnew11 = (OMEGA_11 * rho) * (ux * (3.0f * ux - 9.0f * uz + 3.0f) - 1.5 * (uy * uy) + uz * (3.0f * uz - 3.0f))  + (OMEGA_11 * rho);
-        const float fnew12 = (OMEGA_12 * rho) * (-1.5 * (ux * ux) + uy * (3.0f * uy - 9.0f * uz + 3.0f) + uz * (3.0f * uz - 3.0f)) + (OMEGA_12 * rho);
-        const float fnew13 = (OMEGA_13 * rho) * (ux * (3.0f * ux + 9.0f * uz - 3.0f) - 1.5 * (uy * uy) + uz * (3.0f * uz - 3.0f))  + (OMEGA_13 * rho);
-        const float fnew14 = (OMEGA_14 * rho) * (-1.5 * (ux * ux) + uy * (3.0f * uy + 9.0f * uz - 3.0f) + uz * (3.0f * uz - 3.0f)) + (OMEGA_14 * rho);
-        const float fnew15 = (OMEGA_15 * rho) * (ux * (3.0f * ux + 9.0f * uz + 3.0f) - 1.5 * (uy * uy) + uz * (3.0f * uz + 3.0f))  + (OMEGA_15 * rho);
-        const float fnew16 = (OMEGA_16 * rho) * (-1.5 * (ux * ux) + uy * (3.0f * uy + 9.0f * uz + 3.0f) + uz * (3.0f * uz + 3.0f)) + (OMEGA_16 * rho);
-        const float fnew17 = (OMEGA_17 * rho) * (ux * (3.0f * ux - 9.0f * uz - 3.0f) - 1.5 * (uy * uy) + uz * (3.0f * uz + 3.0f))  + (OMEGA_17 * rho);
-        const float fnew18 = (OMEGA_18 * rho) * (-1.5 * (ux * ux) + uy * (3.0f * uy - 9.0f * uz - 3.0f) + uz * (3.0f * uz + 3.0f)) + (OMEGA_18 * rho);
+#if (COLLIDE_METHOD == SAILFISH_METHOD)
+        const float fnew0 = (1.0f * (1.0f / 3.0f)) * rho * (-3.0f * (1.0f * (1.0f / 2.0f)) * (ux * ux) - 3.0f * (1.0f * (1.0f / 2.0f)) * (uy * uy) - 3.0f * (1.0f * (1.0f / 2.0f)) * (uz * uz)) + (1.0f * (1.0f / 3.0f)) * rho;
+        const float fnew1 = (1.0f * (1.0f / 18.0f)) * rho * (ux * (3.0f * ux + 3.0f) - 3.0f * (1.0f * (1.0f / 2.0f)) * (uy * uy) - 3.0f * (1.0f * (1.0f / 2.0f)) * (uz * uz)) + (1.0f * (1.0f / 18.0f)) * rho;
+        const float fnew3 = (1.0f * (1.0f / 18.0f)) * rho * (ux * (3.0f * ux - 3.0f) - 3.0f * (1.0f * (1.0f / 2.0f)) * (uy * uy) - 3.0f * (1.0f * (1.0f / 2.0f)) * (uz * uz)) + (1.0f * (1.0f / 18.0f)) * rho;
+        const float fnew2 = (1.0f * (1.0f / 18.0f)) * rho * (-3.0f * (1.0f * (1.0f / 2.0f)) * (ux * ux) + uy * (3.0f * uy + 3.0f) - 3.0f * (1.0f * (1.0f / 2.0f)) * (uz * uz)) + (1.0f * (1.0f / 18.0f)) * rho;
+        const float fnew4 = (1.0f * (1.0f / 18.0f)) * rho * (-3.0f * (1.0f * (1.0f / 2.0f)) * (ux * ux) + uy * (3.0f * uy - 3.0f) - 3.0f * (1.0f * (1.0f / 2.0f)) * (uz * uz)) + (1.0f * (1.0f / 18.0f)) * rho;
+        const float fnew6 = (1.0f * (1.0f / 18.0f)) * rho * (-3.0f * (1.0f * (1.0f / 2.0f)) * (ux * ux) - 3.0f * (1.0f * (1.0f / 2.0f)) * (uy * uy) + uz * (3.0f * uz + 3.0f)) + (1.0f * (1.0f / 18.0f)) * rho;
+        const float fnew5 = (1.0f * (1.0f / 18.0f)) * rho * (-3.0f * (1.0f * (1.0f / 2.0f)) * (ux * ux) - 3.0f * (1.0f * (1.0f / 2.0f)) * (uy * uy) + uz * (3.0f * uz - 3.0f)) + (1.0f * (1.0f / 18.0f)) * rho;
+        const float fnew7 = (1.0f * (1.0f / 36.0f)) * rho * (ux * (3.0f * ux + 9.0f * uy + 3.0f) + uy * (3.0f * uy + 3.0f) - 3.0f * (1.0f * (1.0f / 2.0f)) * (uz * uz)) + (1.0f * (1.0f / 36.0f)) * rho;
+        const float fnew8 = (1.0f * (1.0f / 36.0f)) * rho * (ux * (3.0f * ux - 9.0f * uy - 3.0f) + uy * (3.0f * uy + 3.0f) - 3.0f * (1.0f * (1.0f / 2.0f)) * (uz * uz)) + (1.0f * (1.0f / 36.0f)) * rho;
+        const float fnew10 = (1.0f * (1.0f / 36.0f)) * rho * (ux * (3.0f * ux - 9.0f * uy + 3.0f) + uy * (3.0f * uy - 3.0f) - 3.0f * (1.0f * (1.0f / 2.0f)) * (uz * uz)) + (1.0f * (1.0f / 36.0f)) * rho;
+        const float fnew9 = (1.0f * (1.0f / 36.0f)) * rho * (ux * (3.0f * ux + 9.0f * uy - 3.0f) + uy * (3.0f * uy - 3.0f) - 3.0f * (1.0f * (1.0f / 2.0f)) * (uz * uz)) + (1.0f * (1.0f / 36.0f)) * rho;
+        const float fnew16 = (1.0f * (1.0f / 36.0f)) * rho * (-3.0f * (1.0f * (1.0f / 2.0f)) * (ux * ux) + uy * (3.0f * uy + 9.0f * uz + 3.0f) + uz * (3.0f * uz + 3.0f)) + (1.0f * (1.0f / 36.0f)) * rho;
+        const float fnew18 = (1.0f * (1.0f / 36.0f)) * rho * (-3.0f * (1.0f * (1.0f / 2.0f)) * (ux * ux) + uy * (3.0f * uy - 9.0f * uz - 3.0f) + uz * (3.0f * uz + 3.0f)) + (1.0f * (1.0f / 36.0f)) * rho;
+        const float fnew12 = (1.0f * (1.0f / 36.0f)) * rho * (-3.0f * (1.0f * (1.0f / 2.0f)) * (ux * ux) + uy * (3.0f * uy - 9.0f * uz + 3.0f) + uz * (3.0f * uz - 3.0f)) + (1.0f * (1.0f / 36.0f)) * rho;
+        const float fnew14 = (1.0f * (1.0f / 36.0f)) * rho * (-3.0f * (1.0f * (1.0f / 2.0f)) * (ux * ux) + uy * (3.0f * uy + 9.0f * uz - 3.0f) + uz * (3.0f * uz - 3.0f)) + (1.0f * (1.0f / 36.0f)) * rho;
+        const float fnew15 = (1.0f * (1.0f / 36.0f)) * rho * (ux * (3.0f * ux + 9.0f * uz + 3.0f) - 3.0f * (1.0f * (1.0f / 2.0f)) * (uy * uy) + uz * (3.0f * uz + 3.0f)) + (1.0f * (1.0f / 36.0f)) * rho;
+        const float fnew17 = (1.0f * (1.0f / 36.0f)) * rho * (ux * (3.0f * ux - 9.0f * uz - 3.0f) - 3.0f * (1.0f * (1.0f / 2.0f)) * (uy * uy) + uz * (3.0f * uz + 3.0f)) + (1.0f * (1.0f / 36.0f)) * rho;
+        const float fnew11 = (1.0f * (1.0f / 36.0f)) * rho * (ux * (3.0f * ux - 9.0f * uz + 3.0f) - 3.0f * (1.0f * (1.0f / 2.0f)) * (uy * uy) + uz * (3.0f * uz - 3.0f)) + (1.0f * (1.0f / 36.0f)) * rho;
+        const float fnew13 = (1.0f * (1.0f / 36.0f)) * rho * (ux * (3.0f * ux + 9.0f * uz - 3.0f) - 3.0f * (1.0f * (1.0f / 2.0f)) * (uy * uy) + uz * (3.0f * uz - 3.0f)) + (1.0f * (1.0f / 36.0f)) * rho;
+
+        // const float fnew0  = (OMEGA_0  * rho) * (-1.5 * (ux * ux) - 1.5 * (uy * uy) - 1.5 * (uz * uz))                             + (OMEGA_0  * rho);
+        // const float fnew1  = (OMEGA_1  * rho) * (ux * (3.0f * ux + 3.0f) - 1.5 * (uy * uy) - 1.5 * (uz * uz))                      + (OMEGA_1  * rho);
+        // const float fnew2  = (OMEGA_2  * rho) * (-1.5 * (ux * ux) + uy * (3.0f * uy + 3.0f) - 1.5 * (uz * uz))                     + (OMEGA_2  * rho);
+        // const float fnew3  = (OMEGA_3  * rho) * (ux * (3.0f * ux - 3.0f) - 1.5 * (uy * uy) - 1.5 * (uz * uz))                      + (OMEGA_3  * rho);
+        // const float fnew4  = (OMEGA_4  * rho) * (-1.5 * (ux * ux) + uy * (3.0f * uy - 3.0f) - 1.5 * (uz * uz))                     + (OMEGA_4  * rho);
+        // const float fnew5  = (OMEGA_5  * rho) * (-1.5 * (ux * ux) - 1.5 * (uy * uy) + uz * (3.0f * uz - 3.0f))                     + (OMEGA_5  * rho);
+        // const float fnew6  = (OMEGA_6  * rho) * (-1.5 * (ux * ux) - 1.5 * (uy * uy) + uz * (3.0f * uz + 3.0f))                     + (OMEGA_6  * rho);
+        // const float fnew7  = (OMEGA_7  * rho) * (ux * (3.0f * ux + 9.0f * uy + 3.0f) + uy * (3.0f * uy + 3.0f) - 1.5 * (uz * uz))  + (OMEGA_7  * rho);
+        // const float fnew8  = (OMEGA_8  * rho) * (ux * (3.0f * ux - 9.0f * uy - 3.0f) + uy * (3.0f * uy + 3.0f) - 1.5 * (uz * uz))  + (OMEGA_8  * rho);
+        // const float fnew9  = (OMEGA_9  * rho) * (ux * (3.0f * ux + 9.0f * uy - 3.0f) + uy * (3.0f * uy - 3.0f) - 1.5 * (uz * uz))  + (OMEGA_9  * rho);
+        // const float fnew10 = (OMEGA_10 * rho) * (ux * (3.0f * ux - 9.0f * uy + 3.0f) + uy * (3.0f * uy - 3.0f) - 1.5 * (uz * uz))  + (OMEGA_10 * rho);
+        // const float fnew11 = (OMEGA_11 * rho) * (ux * (3.0f * ux - 9.0f * uz + 3.0f) - 1.5 * (uy * uy) + uz * (3.0f * uz - 3.0f))  + (OMEGA_11 * rho);
+        // const float fnew12 = (OMEGA_12 * rho) * (-1.5 * (ux * ux) + uy * (3.0f * uy - 9.0f * uz + 3.0f) + uz * (3.0f * uz - 3.0f)) + (OMEGA_12 * rho);
+        // const float fnew13 = (OMEGA_13 * rho) * (ux * (3.0f * ux + 9.0f * uz - 3.0f) - 1.5 * (uy * uy) + uz * (3.0f * uz - 3.0f))  + (OMEGA_13 * rho);
+        // const float fnew14 = (OMEGA_14 * rho) * (-1.5 * (ux * ux) + uy * (3.0f * uy + 9.0f * uz - 3.0f) + uz * (3.0f * uz - 3.0f)) + (OMEGA_14 * rho);
+        // const float fnew15 = (OMEGA_15 * rho) * (ux * (3.0f * ux + 9.0f * uz + 3.0f) - 1.5 * (uy * uy) + uz * (3.0f * uz + 3.0f))  + (OMEGA_15 * rho);
+        // const float fnew16 = (OMEGA_16 * rho) * (-1.5 * (ux * ux) + uy * (3.0f * uy + 9.0f * uz + 3.0f) + uz * (3.0f * uz + 3.0f)) + (OMEGA_16 * rho);
+        // const float fnew17 = (OMEGA_17 * rho) * (ux * (3.0f * ux - 9.0f * uz - 3.0f) - 1.5 * (uy * uy) + uz * (3.0f * uz + 3.0f))  + (OMEGA_17 * rho);
+        // const float fnew18 = (OMEGA_18 * rho) * (-1.5 * (ux * ux) + uy * (3.0f * uy - 9.0f * uz - 3.0f) + uz * (3.0f * uz + 3.0f)) + (OMEGA_18 * rho);
 #endif
 
 #undef  UNROLL_X
@@ -255,7 +316,7 @@ void collideAndStream(__global float * f_collide, __global float * density, __gl
         UNROLL_19();
     }
 
-#if (STREAMING_METHOD == STREAMING_PUSH)
+#if (STREAMING_METHOD == SCRATCH_METHOD)
     if (is_wall(cell_type)) return;
     if (is_corner(cell_type)) return;
 #undef  UNROLL_X
@@ -272,7 +333,7 @@ void collideAndStream(__global float * f_collide, __global float * density, __gl
     UNROLL_19();
 #endif
 
-#if (STREAMING_METHOD == STREAMING_SAILFISH)
+#if (STREAMING_METHOD == SAILFISH_METHOD)
     int lx = get_local_id(0);
 
     bool alive = true;

@@ -6,6 +6,7 @@ DIM_TEST	= 8
 VISCOSITY	= 0.0089
 VELOCITY	= 0.05
 FOLDER		= ./results
+SAILFISH_RES= ./sailfish_results
 
 
 CXX			= g++
@@ -35,6 +36,7 @@ test: $(TARGET)
 	@ $(RM) $(FOLDER)/f_*.dump
 	@ $(RM) $(FOLDER)/lbmcl.*.vti
 	@ ./lbmcl -P$(PLATFORM) -D$(DEVICE) -d$(DIM_TEST) -v$(VISCOSITY) -u$(VELOCITY) -i10 -e1 -k $(FOLDER) -p $(FOLDER) -f
+	@ python3 verify.py -i10 -e1 -t${SAILFISH_RES} -n${FOLDER}
 
 test32: $(TARGET)
 	@ $(RM) $(FOLDER)/map*.dump

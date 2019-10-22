@@ -532,12 +532,11 @@ int main(int argc, char * argv[])
         }
 
         processData(queue, (is_swap ? collideAndStream_swap : collideAndStream));
+        iteration++;
 
         if (options.store_vti && (iteration != 0) && (iteration % options.every == 0)) {
             store_vti(queue, rho, u, rho_val, u_val, iteration);
         }
-
-        iteration++;
     }
 
     std::cout << "Total time: "

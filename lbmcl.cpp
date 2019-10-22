@@ -231,12 +231,12 @@ static void dump_map(const cl::CommandQueue & queue,
     std::ofstream dump;
     dump.open(filenameBuilder.str());
 
-    for (int z = 0; z < options.dim; ++z) {
-        for (int y = 0; y < options.dim; ++y) {
-            for (int x = 0; x < options.dim; ++x) {
-                const int cell_type = map_val[IDxyz(x, y, z)];
+    for (size_t z = 0; z < options.dim; ++z) {
+        for (size_t y = 0; y < options.dim; ++y) {
+            for (size_t x = 0; x < options.dim; ++x) {
+                const size_t cell_type = map_val[IDxyz(x, y, z)];
                 
-                int val = 1;
+                size_t val = 1;
                 if (is_wall(cell_type)) val = 4;
                 if (is_moving(cell_type)) val = 2;
                 if (!is_moving(cell_type) && is_boundary(cell_type)) val = 3;
@@ -273,18 +273,18 @@ static void dump_f(const cl::CommandQueue & queue,
     std::ofstream dump;
     dump.open(filenameBuilder.str());
 
-    for (int z = 0; z < options.dim; ++z) {
-        for (int y = 0; y < options.dim; ++y) {
+    for (size_t z = 0; z < options.dim; ++z) {
+        for (size_t y = 0; y < options.dim; ++y) {
             dump << "        ";
-            for (int q = 0; q < Q; ++q) {
+            for (size_t q = 0; q < Q; ++q) {
                 dump << std::setw(8) << q << " ";
             }
             dump << std::endl;
 
-            for (int x = 0; x < options.dim; ++x) {
-                const int index = IDxyz(x, y, z);
+            for (size_t x = 0; x < options.dim; ++x) {
+                const size_t index = IDxyz(x, y, z);
                 dump << "(" << x << "," << y << "," << z << ") ";
-                for (int q = 0; q < Q; ++q) {
+                for (size_t q = 0; q < Q; ++q) {
                     dump << std::fixed << std::setw(8) << std::setprecision(6) << f_val[IDxyzw(index,  q)] << " ";
                 }
                 dump << std::endl;
@@ -516,7 +516,6 @@ int main(int argc, char * argv[])
         totalTime += CLUEventPrintStats("         initLBM", event_initLBM);
 
         if (options.dump_map)  dump_map(queue, map, map_val);
-        if (options.dump_f)    dump_f(queue, f_collide, f_val, iteration);
         if (options.store_vti) store_vti(queue, rho, u, rho_val, u_val, iteration);
 
     } catch (cl::Error err) {
@@ -529,7 +528,7 @@ int main(int argc, char * argv[])
         int is_swap = (iteration & 1);
 
         if (options.dump_f) {
-            dump_f(queue, (is_swap ? f_collide : f_stream), f_val, iteration);
+            dump_f(queue, (is_swap ? f_stream : f_collide), f_val, iteration);
         }
 
         processData(queue, (is_swap ? collideAndStream_swap : collideAndStream));

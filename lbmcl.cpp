@@ -25,11 +25,11 @@ double totalTime = 0.0;
 struct lbm_options {
     int platformID;
     int deviceID;
-    int dim;
+    size_t dim;
     float viscosity;
     float velocity;
-    int iterations;
-    int every;
+    size_t iterations;
+    size_t every;
     std::string vti_path;
     bool store_vti;
     std::string dump_path;
@@ -43,7 +43,7 @@ struct lbm_options {
         viscosity(0.0089f),
         velocity(0.05f),
         iterations(10),
-        every(-1),
+        every(1),
         vti_path(RESULTS_FOLDER),
         store_vti(false),
         dump_path(RESULTS_FOLDER),
@@ -528,6 +528,10 @@ int main(int argc, char * argv[])
 
         int is_swap = (iteration & 1);
 
+        if (options.dump_f) {
+            dump_f(queue, (is_swap ? f_collide : f_stream), f_val, iteration);
+        }
+
         processData(queue, (is_swap ? collideAndStream_swap : collideAndStream));
 
         if (options.store_vti && (iteration != 0) && (iteration % options.every == 0)) {
@@ -535,21 +539,6 @@ int main(int argc, char * argv[])
         }
 
         iteration++;
-        if (options.dump_f) dump_f(queue, (is_swap ? f_collide : f_stream), f_val, iteration);
-
-        // if (iteration % 2 == 0) {
-        //     processData(queue, collideAndStream);
-        //     if (options.dump_f) dump_f(queue, f_stream, f_val, iteration + 1);
-        // } else {
-        //     processData(queue, collideAndStream_swap);
-        //     if (options.dump_f) dump_f(queue, f_collide, f_val, iteration + 1);
-        // }
-
-        // if (options.store_vti && (iteration != 0) && (iteration % options.every == 0)) {
-        //     store_vti(queue, rho, u, rho_val, u_val, iteration + 1);
-        // }
-
-        // iteration++;
     }
 
     std::cout << "Total time: "

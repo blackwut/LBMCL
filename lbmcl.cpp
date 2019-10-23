@@ -15,8 +15,9 @@
 #define IDxyz(x, y, z) ((x) + ((y) * options.dim) + ((z) * options.dim * options.dim))
 
 
-#define VTK_FORMAT      1
-#define RESULTS_FOLDER "./results"
+#define VTK_FORMAT              1
+#define VTK_FLOAT_PRECISION     16
+#define RESULTS_FOLDER          "./results"
 
 
 double totalTime = 0.0;
@@ -342,10 +343,10 @@ static void store_vti(const cl::CommandQueue & queue,
 
 #if VTK_FORMAT
     vtk << "<?xml version=\"1.0\"?>\n" 
-        << "<VTKFile type=\"ImageData\" version=\"0.1\" byte_order=\"LittleEndian\">\n" 
+        << "<VTKFile type=\"ImageData\" version=\"0.1\" byte_order=\"LittleEndian\" header_type=\"UInt64\">\n" 
         << "  <ImageData WholeExtent=\"0 " << extent << " 0 " << extent << " 0 " << extent << "\" Origin=\"0 0 0\" Spacing=\"1 1 1\">\n"
         << "    <Piece Extent=\"0 " << extent << " 0 " << extent << " 0 " << extent << "\">\n"
-        << "      <PointData Scalars=\"scalars\">\n"
+        << "      <PointData Scalars=\"rho\">\n"
         << "        <DataArray type=\"Float32\" Name=\"rho\" NumberOfComponents=\"1\" format=\"ascii\">\n";
 #endif
 
@@ -353,11 +354,10 @@ static void store_vti(const cl::CommandQueue & queue,
         for (size_t y = from; y < to; ++y) {
             for (size_t x = from; x < to; ++x) {
                 const float val = rho_val[IDxyz(x, y, z)];
-                vtk << std::scientific << val << " ";
+                vtk << std::scientific << std::setprecision(VTK_FLOAT_PRECISION) << val << " ";
             }
             vtk << "\n";
         }
-        vtk << "\n";
     }
 
 #if VTK_FORMAT
@@ -371,13 +371,12 @@ static void store_vti(const cl::CommandQueue & queue,
                 const float val_x = u_val[IDxyz(x, y, z) * 3 + 0];
                 const float val_y = u_val[IDxyz(x, y, z) * 3 + 1];
                 const float val_z = u_val[IDxyz(x, y, z) * 3 + 2];
-                vtk << std::scientific << val_x << " "
-                    << std::scientific << val_y << " "
-                    << std::scientific << val_z << " ";
+                vtk << std::scientific << std::setprecision(VTK_FLOAT_PRECISION) << val_x << " "
+                    << std::scientific << std::setprecision(VTK_FLOAT_PRECISION) << val_y << " "
+                    << std::scientific << std::setprecision(VTK_FLOAT_PRECISION) << val_z << " ";
             }
             vtk << "\n";
         }
-        vtk << "\n";
     }
 
 #if VTK_FORMAT

@@ -36,13 +36,14 @@ test: $(TARGET)
 	@ $(RM) $(FOLDER)/f_*.dump
 	@ $(RM) $(FOLDER)/lbmcl.*.vti
 	@ ./lbmcl -P$(PLATFORM) -D$(DEVICE) -d$(DIM_TEST) -v$(VISCOSITY) -u$(VELOCITY) -i10 -e1 -k $(FOLDER) -p $(FOLDER) -f
-	@ python3 verify.py -i10 -e1 -t${SAILFISH_RES} -n${FOLDER}
+	@ python3 verify.py -i10 -e1 -t${SAILFISH_RES}/8 -n${FOLDER}
 
 test32: $(TARGET)
 	@ $(RM) $(FOLDER)/map*.dump
 	@ $(RM) $(FOLDER)/f_*.dump
 	@ $(RM) $(FOLDER)/lbmcl.*.vti
 	@ ./lbmcl -P$(PLATFORM) -D$(DEVICE) -d32 -v$(VISCOSITY) -u$(VELOCITY) -i500 -e20 -k $(FOLDER)
+	@ python3 verify.py -i500 -e20 -t${SAILFISH_RES}/32 -n${FOLDER}
 
 clean:
 	$(RM) $(TARGET) *.o *~ 

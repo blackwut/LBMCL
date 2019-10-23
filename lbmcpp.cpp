@@ -83,7 +83,7 @@ FOR_ZYX
 
     const int cell_type = map[id];
     if (cell_type & (LEFT | RIGHT | TOP | BOTTOM | FRONT | BACK | WALL)) {
-        if (cell_type != BOUNDARY_MOVING) {
+        if (cell_type != MOVING_BOUNDARY) {
             rho[id] = NAN;
             u[id * 3 + 0] = NAN;
             u[id * 3 + 1] = NAN;
@@ -174,7 +174,7 @@ FOR_ZYX
     map[id] = cell_type;
 
     const float rho = CELL_INITIAL_DENSITY;
-    const float ux = (cell_type == BOUNDARY_MOVING ? CELL_INITIAL_VELOCITY : 0.0f);
+    const float ux = (cell_type == MOVING_BOUNDARY ? CELL_INITIAL_VELOCITY : 0.0f);
     const float uy = 0.0f;
     const float uz = 0.0f;
 
@@ -211,7 +211,7 @@ inline int is_wet(const int cell_type)
 
 inline int is_moving(const int cell_type)
 {
-    return (cell_type & BOUNDARY_MOVING);
+    return (cell_type & MOVING_BOUNDARY);
 }
 
 void boundary_condition(float * f_collide, const int * map)
@@ -222,7 +222,7 @@ FOR_ZYX
 
     if (is_fluid(cell_type)) continue;
 
-    if (cell_type == BOUNDARY_MOVING) {
+    if (cell_type == MOVING_BOUNDARY) {
         f_collide[IDxyzw(id,  6)] = f_collide[IDxyzw(id,  S_6)];
         f_collide[IDxyzw(id, 15)] = f_collide[IDxyzw(id, S_15)];
         f_collide[IDxyzw(id, 16)] = f_collide[IDxyzw(id, S_16)];
@@ -276,7 +276,7 @@ FOR_ZYX
     const int id = IDxyz(x, y, z);
     const int cell_type = map[id];
 
-    if (cell_type & (BOUNDARY_MOVING | FLUID)) {
+    if (cell_type & (MOVING_BOUNDARY | FLUID)) {
 
         float rho = 0.0f;
         float ux = 0.0f;
@@ -354,10 +354,10 @@ int main(int argc, char * argv[])
     if (argc > 1) printsEvery = strtol(argv[argi++], NULL, 10);
 
     int timestamp = 0;
-    float * rho = new float[DIM * DIM * DIM];
-    float * u = new float[DIM * DIM * DIM * 3];
     float * f_stream = new float[DIM * DIM * DIM * Q];
     float * f_collide = new float[DIM * DIM * DIM * Q];
+    float * rho = new float[DIM * DIM * DIM];
+    float * u = new float[DIM * DIM * DIM * 3];
     int * map = new int[DIM * DIM * DIM];
 
 
@@ -366,24 +366,27 @@ int main(int argc, char * argv[])
     timestamp++;
 
 
-    for (size_t i = 0; i < iterations; ++i) {
+    while (timestamp <= iterations) {
         boundary_condition(f_collide, map);
         collision(f_collide, map);
         streaming(f_stream, f_collide, map);
 
         if (timestamp % printsEvery == 0) store_data(rho, u, f_collide, map, timestamp);
-        timestamp++;
 
         // SWAP
         float * tmp = f_stream;
         f_stream = f_collide;
         f_collide = tmp;
 
+        timestamp++;
     }
 
     delete[] f_stream;
     delete[] f_collide;
+    delete[] rho;
+    delete[] u;
     delete[] map;
+
 
     return 0;
 }

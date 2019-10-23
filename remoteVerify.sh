@@ -1,6 +1,19 @@
 #!/bin/bash
 
-TEST=test32
+set -e
+
+case "$1" in
+test32)
+	TEST=test32
+	;;
+test)
+	TEST=test
+	;;
+*)
+	TEST=test
+	;;
+esac
+
 
 A="/Volumes/RamDisk/lbmcl"
 S="/Volumes/RamDisk/sailfish"
@@ -20,7 +33,7 @@ ssh aottimo@sangiovese.isti.cnr.it -t "cd ~/sailfish;source activate.sh; ./$TEST
 scp sangiovese.isti.cnr.it:~/LBMCL/results/* $A
 scp sangiovese.isti.cnr.it:~/sailfish/results/* $S
 
-if [ "$TEST" -eq "test" ]; then
+if [ $TEST = "test" ]; then
 	python3 verify.py -i10 -e1 -t $S -n $A
 else
 	python3 verify.py -i500 -e20 -t $S -n $A

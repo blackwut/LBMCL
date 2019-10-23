@@ -16,7 +16,7 @@
 
 
 #define VTK_FORMAT              1
-#define VTK_FLOAT_PRECISION     6
+#define VTK_FLOAT_PRECISION     16
 #define RESULTS_FOLDER          "./results"
 
 

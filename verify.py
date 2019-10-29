@@ -38,7 +38,7 @@ for i in range(0, iterations + 1, every):
     name_a = '{path_new}/lbmcl.{num:{f}{w}}.vti'.format(path_new=base_a,
                                                         num=i,
                                                         f=fill,
-                                                        w=4)
+                                                        w=width)
     s = pyvista.read(name_s)
     a = pyvista.read(name_a)
 
@@ -50,8 +50,8 @@ for i in range(0, iterations + 1, every):
     rho_mse = mean_squared_error(rho_s, rho_a)
     u_mse = mean_squared_error(u_s, u_a)
 
-    rho_max_err = numpy.abs(numpy.max(rho_s - rho_a))
-    u_max_err = numpy.abs(numpy.max(u_s - u_a))
+    rho_max_err = numpy.max(numpy.abs(rho_s - rho_a))
+    u_max_err = numpy.max(numpy.abs(u_s - u_a))
     print('{num:{f}{w}}:  {rho_mse:e}   {u_mse:e}   {rho_max:e}   {u_max:e}'
           .format(num=i, rho_mse=rho_mse, u_mse=u_mse, rho_max=rho_max_err,
                   u_max=u_max_err, f='', w=width))

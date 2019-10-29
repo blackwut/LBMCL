@@ -1,317 +1,71 @@
-#include <cstdio>
-#include <cmath>
-#include <cstdlib>
 #include <string>
 #include <iostream>
 #include <iomanip>
-#include <fstream>
 #include <sstream>
-#include <getopt.h>
 
+#include "common.h"
 #include "CLUtil.hpp"
-#include "constants.h"
-
-#undef IDxyz
-#define IDxyz(x, y, z) ((x) + ((y) * options.dim) + ((z) * options.dim * options.dim))
-
-
-#define VTK_FORMAT              1
-#define VTK_FLOAT_PRECISION     16
-#define RESULTS_FOLDER          "./results"
+#include "ArgsUtil.hpp"
+#include "StoreUtil.hpp"
 
 
 double totalTime = 0.0;
-
-
-struct lbm_options {
-    int platformID;
-    int deviceID;
-    size_t dim;
-    float viscosity;
-    float velocity;
-    size_t iterations;
-    size_t every;
-    std::string vti_path;
-    bool store_vti;
-    std::string dump_path;
-    bool dump_map;
-    bool dump_f;
-
-    lbm_options() :
-        platformID(-1),
-        deviceID(-1),
-        dim(8),
-        viscosity(0.0089f),
-        velocity(0.05f),
-        iterations(10),
-        every(1),
-        vti_path(RESULTS_FOLDER),
-        store_vti(false),
-        dump_path(RESULTS_FOLDER),
-        dump_map(false),
-        dump_f(false)
-    {}
-
-    size_t f_dim()   const { return (dim * dim * dim * Q_DIM); }
-    size_t u_dim()   const { return (dim * dim * dim * D); }
-    size_t rho_dim() const { return (dim * dim * dim); }
-    size_t map_dim() const { return (dim * dim * dim); }
-
-    size_t f_size()   const { return f_dim()   * sizeof(float); }
-    size_t u_size()   const { return u_dim()   * sizeof(float); }
-    size_t rho_size() const { return rho_dim() * sizeof(float); }
-    size_t map_size() const { return map_dim() * sizeof(int);   }
-
-    size_t device_memory_size_b() const
-    {
-        return f_size() * 2 + u_size() + rho_size() + map_size();
-    }
-
-    size_t device_memory_size_k() const
-    {
-        return device_memory_size_b() / (float)(1 << 10);
-    }
-
-    size_t device_memory_size_m() const
-    {
-        return device_memory_size_b() / (1 << 20);
-    }
-
-    void print_options()
-    {
-        std::cout << "PlatformID       = " << platformID             << "\n"
-                  << "DeviceID         = " << deviceID               << "\n"
-                  << "dim              = " << dim                    << "\n"
-                  << "viscosity        = " << viscosity              << "\n"
-                  << "velocity         = " << velocity               << "\n"
-                  << "Device Mem. (KB) = " << device_memory_size_k() << "\n"
-                  << "Device Mem. (MB) = " << device_memory_size_m() << "\n"
-                  << "VTI PATH         = " << vti_path               << "\n"
-                  << "STORE VTI        = " << store_vti              << "\n"
-                  << "DUMP F           = " << dump_f                 << "\n"
-                  << "DUMP MAP         = " << dump_map               << "\n";
-    }
-};
-
-lbm_options options;
-
-
-static void print_help()
-{
-    std::cout << "-P  --platform      Use the specified platform                \n"
-                 "-D  --device        Use the specified device                  \n"
-                 "-d  --dim           Set the lattice dimension                 \n"
-                 "-v  --viscosity     Set the fluid viscosity                   \n"
-                 "-u  --velocity      Set the x velocity of the moving wall     \n"
-                 "-i  --iterations    Specify the number of iterations          \n"
-                 "-e  --every         Save simulation results every N iterations\n"
-                 "-k  --vtk-path      Specify where store VTI files             \n"
-                 "-p  --dump-path     Specify where store dumps                 \n"
-                 "-m  --dump-map      Dump the lattice map                      \n"
-                 "-f  --dump-f        Dump the lattice \"f\" for each iteration \n"
-                 "-h  --help          Show this help message and exit           \n";
-    exit(1);
-}
-
-
-static void process_args(int argc, char * argv[])
-{
-    opterr = 0;
-    const char * const short_opts = "P:D:d:v:u:i:e:k:p:mfh";
-    const option long_opts[] = {
-            {"platform",   required_argument, nullptr, 'P'},
-            {"device",     required_argument, nullptr, 'D'},
-            {"dim",        required_argument, nullptr, 'd'},
-            {"viscosity",  required_argument, nullptr, 'v'},
-            {"velocity",   required_argument, nullptr, 'u'},
-            {"iterations", required_argument, nullptr, 'i'},
-            {"every",      optional_argument, nullptr, 'e'},
-            {"vti-path",   optional_argument, nullptr, 'k'},
-            {"dump-path",  optional_argument, nullptr, 'p'},
-            {"dump-map",   no_argument,       nullptr, 'm'},
-            {"dump-f",     no_argument,       nullptr, 'f'},
-            {"help",       no_argument,       nullptr, 'h'},
-            {nullptr,      no_argument,       nullptr,   0}
-    };
-
-    while (1) {
-        const int opt = getopt_long(argc, argv, short_opts, long_opts, nullptr);
-
-        if (opt < 0) break;
-
-        switch (opt) {
-            case 'P':
-                if ((options.platformID = std::stoi(optarg)) < 0) {
-                    std::cerr << "Please enter a valid platform" << std::endl;
-                    exit(1);
-                }
-                break;
-            case 'D':
-                if ((options.deviceID = std::stoi(optarg)) < 0) {
-                    std::cerr << "Please enter a valid device" << std::endl;
-                    exit(1);
-                }
-                break;
-            case 'd':
-                if ((options.dim = std::stoi(optarg)) < 0) {
-                    std::cerr << "Please enter a valid lattice dimension" << std::endl;
-                    exit(1);
-                }
-                break;
-            case 'v':
-                if ((options.viscosity = std::atof(optarg)) < 0) {
-                    std::cerr << "Please enter a valid viscosity value" << std::endl;
-                    exit(1);
-                }
-                break;
-            case 'u':
-                options.velocity = std::atof(optarg);
-                break;
-            case 'i':
-                if ((options.iterations = std::stoi(optarg)) < 0) {
-                    std::cerr << "Please enter a valid number of iterations" << std::endl;
-                    exit(1);
-                }
-                break;
-            case 'e':
-                if ((options.every = std::stoi(optarg)) < 0) {
-                    std::cerr << "Please enter a valid number for save simulation results every N iterations" << std::endl;
-                    exit(1);
-                }
-                break;
-            case 'k':
-                printf("-k = %s\n", optarg);
-                options.vti_path = std::string(optarg);
-                if (options.vti_path.empty()) {
-                    std::cout << "VTI files will be stored here" << std::endl;
-                    options.vti_path = RESULTS_FOLDER;
-                }
-                options.store_vti = true;
-                break;
-            case 'p':
-                options.dump_path  = std::string(optarg);
-                if (options.dump_path.empty()) {
-                    std::cout << "dump files will be stored here" << std::endl;
-                    options.dump_path = RESULTS_FOLDER;
-                }
-                break;
-            case 'm':
-                options.dump_map = true;
-                break;
-            case 'f':
-                options.dump_f = true;
-                break;
-            case 'h':
-            case '?':
-            default:
-                print_help();
-                break;
-        }
-    }
-}
+lbm_options opts;
 
 
 static void dump_map(const cl::CommandQueue & queue,
-                     const cl::Buffer & map,
-                     float * map_val)
+                     const cl::Buffer & map)
 {
     try {
-        cl::Event event_read_map;
+        int * map_val = new int[opts.map_dim()];
+        cl::Event read_evt;
         CLUCheckError(
-            queue.enqueueReadBuffer(map, CL_TRUE, 0, options.map_size(), map_val, NULL, &event_read_map),
+            queue.enqueueReadBuffer(map, CL_TRUE, 0, opts.map_size(), map_val, NULL, &read_evt),
             "dump_f",
             true
         );
-        totalTime += CLUEventPrintStats("        read_map", event_read_map);
+        totalTime += CLUEventPrintStats("        read_map", read_evt);
+
+        store_map(opts.dump_path, map_val, opts.dim);
+        delete [] map_val;
     } catch (cl::Error err) {
         CLUErrorPrint(err, true);
     }
-
-    std::stringstream filenameBuilder;
-    filenameBuilder << options.dump_path << "/map.dump";
-    std::ofstream dump;
-    dump.open(filenameBuilder.str());
-
-    for (size_t z = 0; z < options.dim; ++z) {
-        for (size_t y = 0; y < options.dim; ++y) {
-            for (size_t x = 0; x < options.dim; ++x) {
-                const size_t cell_type = map_val[IDxyz(x, y, z)];
-                
-                size_t val = 1;
-                if (is_wall(cell_type)) val = 4;
-                if (is_moving(cell_type)) val = 2;
-                if (!is_moving(cell_type) && is_boundary(cell_type)) val = 3;
-                dump << val << " ";
-            }
-            dump << std::endl;
-        }
-        dump << std::endl;
-    }
-    dump << std::endl;
-    dump.close();
 }
-
 
 static void dump_f(const cl::CommandQueue & queue,
                    const cl::Buffer & f,
-                   float * f_val,
-                   size_t iteration)
+                   real_t * f_val,
+                   const size_t iteration,
+                   const size_t iterations)
 {
     try {
-        cl::Event event_read_f;
+        cl::Event read_evt;
         CLUCheckError(
-            queue.enqueueReadBuffer(f, CL_TRUE, 0, options.f_size(), f_val, NULL, &event_read_f),
+            queue.enqueueReadBuffer(f, CL_TRUE, 0, opts.f_size(), f_val, NULL, &read_evt),
             "dump_f",
             true
         );
-        totalTime += CLUEventPrintStats("          read_f", event_read_f);
+        totalTime += CLUEventPrintStats("          read_f", read_evt);
     } catch (cl::Error err) {
         CLUErrorPrint(err, true);
     }
-
-    std::stringstream filenameBuilder;
-    filenameBuilder << options.dump_path << "/f_" << std::setw(4) << std::setfill('0') << iteration << ".dump";
-    std::ofstream dump;
-    dump.open(filenameBuilder.str());
-
-    for (size_t z = 0; z < options.dim; ++z) {
-        for (size_t y = 0; y < options.dim; ++y) {
-            dump << "        ";
-            for (size_t q = 0; q < Q; ++q) {
-                dump << std::setw(8) << q << " ";
-            }
-            dump << std::endl;
-
-            for (size_t x = 0; x < options.dim; ++x) {
-                const size_t index = IDxyz(x, y, z);
-                dump << "(" << x << "," << y << "," << z << ") ";
-                for (size_t q = 0; q < Q; ++q) {
-                    dump << std::fixed << std::setw(8) << std::setprecision(6) << f_val[IDxyzw(index,  q)] << " ";
-                }
-                dump << std::endl;
-            }
-            dump << std::endl;
-        }
-        dump << std::endl;
-    }
-    dump << std::endl;
-    dump.close();
+    store_f(opts.dump_path, f_val, opts.dim, iteration, iterations);
 }
 
-
-static void store_vti(const cl::CommandQueue & queue,
+static void dump_data(const cl::CommandQueue & queue,
                       const cl::Buffer & rho,
                       const cl::Buffer & u,
-                      float * rho_val,
-                      float * u_val,
-                      size_t iteration)
+                      real_t * rho_val,
+                      real_t * u_val,
+                      const size_t iteration)
 {
     cl::Event event_read_rho;
     cl::Event event_read_u;
 
     try {
         CLUCheckError(
-            queue.enqueueReadBuffer(rho, CL_TRUE, 0, options.rho_size(), rho_val, NULL, &event_read_rho),
+            queue.enqueueReadBuffer(rho, CL_TRUE, 0, opts.rho_size(), rho_val, NULL, &event_read_rho),
             "readRho",
             true
         );
@@ -319,7 +73,7 @@ static void store_vti(const cl::CommandQueue & queue,
 
 
         CLUCheckError(
-            queue.enqueueReadBuffer(u, CL_TRUE, 0, options.u_size(), u_val, NULL, &event_read_u),
+            queue.enqueueReadBuffer(u, CL_TRUE, 0, opts.u_size(), u_val, NULL, &event_read_u),
             "readU",
             true
         );
@@ -327,75 +81,15 @@ static void store_vti(const cl::CommandQueue & queue,
     } catch (cl::Error err) {
         CLUErrorPrint(err, true);
     }
-
-
-    const size_t from = 1;
-    const size_t to = options.dim - 1;
-
-#if VTK_FORMAT
-    const size_t extent = to - from - 1;
-#endif
-
-    std::stringstream filenameBuilder;
-    filenameBuilder << options.vti_path << "/lbmcl." << std::setw(4) << std::setfill('0') << iteration << ".vti";
-    std::ofstream vtk;
-    vtk.open(filenameBuilder.str());
-
-#if VTK_FORMAT
-    vtk << "<?xml version=\"1.0\"?>\n" 
-        << "<VTKFile type=\"ImageData\" version=\"0.1\" byte_order=\"LittleEndian\" header_type=\"UInt64\">\n" 
-        << "  <ImageData WholeExtent=\"0 " << extent << " 0 " << extent << " 0 " << extent << "\" Origin=\"0 0 0\" Spacing=\"1 1 1\">\n"
-        << "    <Piece Extent=\"0 " << extent << " 0 " << extent << " 0 " << extent << "\">\n"
-        << "      <PointData Scalars=\"rho\">\n"
-        << "        <DataArray type=\"Float32\" Name=\"rho\" NumberOfComponents=\"1\" format=\"ascii\">\n";
-#endif
-
-    for (size_t z = from; z < to; ++z) {
-        for (size_t y = from; y < to; ++y) {
-            for (size_t x = from; x < to; ++x) {
-                const float val = rho_val[IDxyz(x, y, z)];
-                vtk << std::scientific << std::setprecision(VTK_FLOAT_PRECISION) << val << " ";
-            }
-            vtk << "\n";
-        }
-    }
-
-#if VTK_FORMAT
-    vtk << "        </DataArray>\n"
-        << "        <DataArray type=\"Float32\" Name=\"v\" NumberOfComponents=\"3\" format=\"ascii\">\n";
-#endif
-
-    for (size_t z = from; z < (to); ++z) {
-        for (size_t y = from; y < (to); ++y) {
-            for (size_t x = from; x < (to); ++x) {
-                const float val_x = u_val[IDxyz(x, y, z) * 3 + 0];
-                const float val_y = u_val[IDxyz(x, y, z) * 3 + 1];
-                const float val_z = u_val[IDxyz(x, y, z) * 3 + 2];
-                vtk << std::scientific << std::setprecision(VTK_FLOAT_PRECISION) << val_x << " "
-                    << std::scientific << std::setprecision(VTK_FLOAT_PRECISION) << val_y << " "
-                    << std::scientific << std::setprecision(VTK_FLOAT_PRECISION) << val_z << " ";
-            }
-            vtk << "\n";
-        }
-    }
-
-#if VTK_FORMAT
-    vtk << "        </DataArray>\n"
-        << "      </PointData>\n"
-        << "    </Piece>\n"
-        << "  </ImageData>\n"
-        << "</VTKFile>\n";
-#endif
-
-    vtk.close();
+    store_vtk(opts.vti_path, rho_val, u_val, opts.dim, iteration, opts.iterations);
 }
 
 
 static void processData(const cl::CommandQueue & queue,
                         const cl::Kernel & collideAndStream)
 {
-    cl::NDRange lws = cl::NDRange(options.dim, 1, 1);
-    cl::NDRange gws = cl::NDRange(options.dim, options.dim, options.dim);
+    cl::NDRange lws = cl::NDRange(opts.dim, 1, 1);
+    cl::NDRange gws = cl::NDRange(opts.dim, opts.dim, opts.dim);
     try {
         cl::Event event_collideAndStream;
 
@@ -415,25 +109,20 @@ int main(int argc, char * argv[])
 {
     // ARGS
     size_t iteration = 0;
-    process_args(argc, argv);
-    options.print_options();
+    opts.process_args(argc, argv);
+    opts.print_values();
 
-    float * rho_val = NULL;
-    float * u_val = NULL;
-    float * map_val = NULL;
-    float * f_val = NULL;
+    real_t * rho_val = NULL;
+    real_t * u_val = NULL;
+    real_t * f_val = NULL;
 
-    if (options.store_vti) {
-        rho_val = new float[options.rho_dim()];
-        u_val = new float[options.u_dim()];
+    if (opts.store_vti) {
+        rho_val = new real_t[opts.rho_dim()];
+        u_val = new real_t[opts.u_dim()];
     }
 
-    if (options.dump_map) {
-        map_val = new float[options.map_dim()];
-    }
-
-    if (options.dump_f) {
-        f_val = new float[options.f_dim()];
+    if (opts.dump_f) {
+        f_val = new real_t[opts.f_dim()];
     }
 
     // OpenCL init
@@ -443,20 +132,25 @@ int main(int argc, char * argv[])
     cl::CommandQueue queue;
     cl::Program program;
 
-    CLUSelectPlatform(platform, options.platformID);
-    CLUSelectDevice(device, platform, options.deviceID);
+    CLUSelectPlatform(platform, opts.platformID);
+    CLUSelectDevice(device, platform, opts.deviceID);
     CLUCreateContext(context, device);
     CLUCreateQueue(queue, context, device);
 
     std::stringstream optionsBuilder;
     optionsBuilder << "-Werror ";
     optionsBuilder << "-I. ";
-    optionsBuilder << "-cl-single-precision-constant -cl-fast-relaxed-math ";
-    // optionsBuilder << "-cal-fast-relaxed-math ";
-    // optionsBuilder << "-cl-denorms-re-zero ";
-    optionsBuilder << "-DDIM=" << options.dim << " ";
-    optionsBuilder << "-DVISC=" << options.viscosity << " ";
-    optionsBuilder << "-DVEL=" << options.velocity << " ";
+    optionsBuilder << "-cl-fast-relaxed-math ";
+    optionsBuilder << "-DDIM="       << opts.dim << " ";
+    optionsBuilder << "-DVISCOSITY=" << opts.viscosity << " ";
+    optionsBuilder << "-DVELOCITY="  << opts.velocity << " ";
+#ifdef FP_DOUBLE
+    optionsBuilder << "-DFP_DOUBLE ";
+#else
+    optionsBuilder << "-DFP_SINGLE ";
+    optionsBuilder << "-cl-single-precision-constant ";
+#endif
+
     std::cout << "Kernels options: " << optionsBuilder.str() << std::endl;
 
     CLUBuildProgram(program, context, device, "kernels.cl", optionsBuilder.str());
@@ -467,19 +161,19 @@ int main(int argc, char * argv[])
 
     cl_int err;
 
-    cl::Buffer f_stream = cl::Buffer(context, CL_MEM_READ_WRITE, options.f_size(), NULL, &err);
+    cl::Buffer f_stream = cl::Buffer(context, CL_MEM_READ_WRITE, opts.f_size(), NULL, &err);
     CLUCheckError(err, "cl::Buffer(f_stream)", true);
 
-    cl::Buffer f_collide = cl::Buffer(context, CL_MEM_READ_WRITE, options.f_size(), NULL, &err);
+    cl::Buffer f_collide = cl::Buffer(context, CL_MEM_READ_WRITE, opts.f_size(), NULL, &err);
     CLUCheckError(err, "cl::Buffer(f_collide))", true);
 
-    cl::Buffer rho = cl::Buffer(context, CL_MEM_READ_WRITE, options.rho_size(), NULL, &err);
+    cl::Buffer rho = cl::Buffer(context, CL_MEM_READ_WRITE, opts.rho_size(), NULL, &err);
     CLUCheckError(err, "cl::Buffer(rho)", true);
 
-    cl::Buffer u = cl::Buffer(context, CL_MEM_READ_WRITE, options.u_size(), NULL, &err);
+    cl::Buffer u = cl::Buffer(context, CL_MEM_READ_WRITE, opts.u_size(), NULL, &err);
     CLUCheckError(err, "cl::Buffer(u)", true);
 
-    cl::Buffer map = cl::Buffer(context, CL_MEM_READ_WRITE, options.map_size(), NULL, &err);
+    cl::Buffer map = cl::Buffer(context, CL_MEM_READ_WRITE, opts.map_size(), NULL, &err);
     CLUCheckError(err, "cl::Buffer(map)", true);
 
 
@@ -506,7 +200,7 @@ int main(int argc, char * argv[])
 
         // initLBM
         cl::Event event_initLBM;
-        cl::NDRange gws = cl::NDRange(options.dim, options.dim, options.dim);
+        cl::NDRange gws = cl::NDRange(opts.dim, opts.dim, opts.dim);
         CLUCheckError(
             queue.enqueueNDRangeKernel(initLBM, cl::NullRange, gws, cl::NullRange, NULL, &event_initLBM),
             "initLBM",
@@ -514,38 +208,38 @@ int main(int argc, char * argv[])
         );
         totalTime += CLUEventPrintStats("         initLBM", event_initLBM);
 
-        if (options.dump_map)  dump_map(queue, map, map_val);
-        if (options.store_vti) store_vti(queue, rho, u, rho_val, u_val, iteration);
+        if (opts.dump_map)  dump_map(queue, map);
+        if (opts.store_vti) dump_data(queue, rho, u, rho_val, u_val, iteration);
 
     } catch (cl::Error err) {
         CLUErrorPrint(err, true);
     }
 
 
-    while (iteration <= options.iterations) {
+    while (iteration <= opts.iterations) {
 
         int is_swap = (iteration & 1);
 
-        if (options.dump_f) {
-            dump_f(queue, (is_swap ? f_stream : f_collide), f_val, iteration);
+        if (opts.dump_f) {
+            dump_f(queue, (is_swap ? f_stream : f_collide), f_val, iteration, opts.iterations);
         }
 
         processData(queue, (is_swap ? collideAndStream_swap : collideAndStream));
         iteration++;
 
-        if (options.store_vti && (iteration != 0) && (iteration % options.every == 0)) {
-            store_vti(queue, rho, u, rho_val, u_val, iteration);
+        if (opts.store_vti && (iteration != 0) && (iteration % opts.every == 0)) {
+            dump_data(queue, rho, u, rho_val, u_val, iteration);
         }
     }
 
-    std::cout << "Total time: "
-              << std::fixed << std::setw(8) << std::setprecision(4)
+    std::cout << " Total time:"
+              << std::fixed << std::setw(12) << std::setprecision(5)
               << totalTime << " ms"
               << std::endl;
 
-    float mlups = ((options.dim - 2) * (options.dim - 2) * (options.dim - 2) * options.iterations) / (totalTime * 1000);
+    double mlups = ((opts.dim - 2) * (opts.dim - 2) * (opts.dim - 2) * opts.iterations) / (totalTime * 1000);
     std::cout << "Performance:"
-              << std::fixed << std::setw(8) << std::setprecision(4)
+              << std::fixed << std::setw(12) << std::setprecision(5)
               << mlups << " MLUPS"
               << std::endl;
 
@@ -553,7 +247,6 @@ int main(int argc, char * argv[])
     if (rho_val != NULL) delete[] rho_val;
     if (u_val != NULL)   delete[] u_val;
     if (f_val != NULL)   delete[] f_val;
-    if (map_val != NULL) delete[] map_val;
 
     return 0;
 }

@@ -106,6 +106,9 @@ struct lbm_options {
                 {nullptr,           no_argument,       nullptr,   0}
         };
 
+        int int_opt = -1;
+        float float_opt = NAN;
+
         while (1) {
             const int opt = getopt_long(argc, argv, short_opts, long_opts, nullptr);
 
@@ -113,57 +116,63 @@ struct lbm_options {
 
             switch (opt) {
                 case 'P':
-                    if ((platformID = std::stoi(optarg)) < 0) {
+                    if ((int_opt = std::stoi(optarg)) < 0) {
                         std::cerr << "Please enter a valid platform" << std::endl;
                         exit(1);
                     }
+                    platformID = int_opt;
                     break;
                 case 'D':
-                    if ((deviceID = std::stoi(optarg)) < 0) {
+                    if ((int_opt = std::stoi(optarg)) < 0) {
                         std::cerr << "Please enter a valid device" << std::endl;
                         exit(1);
                     }
+                    deviceID = int_opt;
                     break;
                 case 'd':
-                    if ((dim = std::stoi(optarg)) < 0) {
+                    if ((int_opt = std::stoi(optarg)) < 0) {
                         std::cerr << "Please enter a valid lattice dimension" << std::endl;
                         exit(1);
                     }
+                    dim = int_opt;
                     break;
                 case 'n':
-                    if ((viscosity = std::atof(optarg)) < 0) {
+                    if ((float_opt = std::atof(optarg)) < 0) {
                         std::cerr << "Please enter a valid viscosity value" << std::endl;
                         exit(1);
                     }
+                    viscosity = float_opt;
                     break;
                 case 'u':
                     velocity = std::atof(optarg);
                     break;
                 case 'i':
-                    if ((iterations = std::stoi(optarg)) < 0) {
+                    if ((int_opt = std::stoi(optarg)) < 0) {
                         std::cerr << "Please enter a valid number of iterations" << std::endl;
                         exit(1);
                     }
+                    iterations = int_opt;
                     break;
                 case 'e':
-                    if ((every = std::stoi(optarg)) < 0) {
+                    if ((int_opt = std::stoi(optarg)) < 0) {
                         std::cerr << "Please enter a valid number for save simulation results every N iterations" << std::endl;
                         exit(1);
                     }
+                    every = int_opt;
                     break;
                 case 'v':
                     vti_path = std::string(optarg);
                     if (vti_path.empty()) {
-                        std::cout << "VTI files will be stored here" << std::endl;
                         vti_path = RESULTS_FOLDER;
+                        std::cout << "VTI files will be stored in:" << vti_path << std::endl;
                     }
                     store_vti = true;
                     break;
                 case 'p':
                     dump_path  = std::string(optarg);
                     if (dump_path.empty()) {
-                        std::cout << "dump files will be stored here" << std::endl;
                         dump_path = RESULTS_FOLDER;
+                        std::cout << "dump files will be stored in: " << dump_path << std::endl;
                     }
                     break;
                 case 'm':

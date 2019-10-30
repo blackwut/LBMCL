@@ -27,13 +27,13 @@
 #define INITIAL_VELOCITY_Z      0.0
 
 #define TAU                     ((3.0 * VISCOSITY) + 0.5)
-#define INV_TAU                 (1.0 / TAU)
+#define INV_TAU                 (1.0 / TAU) // 1.89861401177140698415e+00f
 
 #define IDxyz(x, y, z)          ((x) + ((y) * (DIM)) + ((z) * (DIM) * (DIM)))
 #define IDxyzq(id, w)           ((id) * (Q_DIM) + (w))
-#define UX(id)                  u[(id) * 3 + 0]//u[IDux(id)]
-#define UY(id)                  u[(id) * 3 + 1]//u[IDuy(id)]
-#define UZ(id)                  u[(id) * 3 + 2]//u[IDuz(id)]
+#define UX(id)                  u[(id) * 3 + 0]
+#define UY(id)                  u[(id) * 3 + 1]
+#define UZ(id)                  u[(id) * 3 + 2]
 
 
 // MACRO UNROLL of 19.
@@ -73,25 +73,25 @@
     UNROLL_X(14)
 
 
-#define OMEGA_0     (1.0 /  3.0)
-#define OMEGA_1     (1.0 / 18.0)
-#define OMEGA_2     (1.0 / 18.0)
-#define OMEGA_3     (1.0 / 18.0)
-#define OMEGA_4     (1.0 / 18.0)
-#define OMEGA_5     (1.0 / 18.0)
-#define OMEGA_6     (1.0 / 18.0)
-#define OMEGA_7     (1.0 / 36.0)
-#define OMEGA_8     (1.0 / 36.0)
-#define OMEGA_9     (1.0 / 36.0)
-#define OMEGA_10    (1.0 / 36.0)
-#define OMEGA_11    (1.0 / 36.0)
-#define OMEGA_12    (1.0 / 36.0)
-#define OMEGA_13    (1.0 / 36.0)
-#define OMEGA_14    (1.0 / 36.0)
-#define OMEGA_15    (1.0 / 36.0)
-#define OMEGA_16    (1.0 / 36.0)
-#define OMEGA_17    (1.0 / 36.0)
-#define OMEGA_18    (1.0 / 36.0)
+#define OMEGA_0     0.3333333333333333   //(1.0 /  3.0)
+#define OMEGA_1     0.05555555555555555  //(1.0 / 18.0)
+#define OMEGA_2     0.05555555555555555  //(1.0 / 18.0)
+#define OMEGA_3     0.05555555555555555  //(1.0 / 18.0)
+#define OMEGA_4     0.05555555555555555  //(1.0 / 18.0)
+#define OMEGA_5     0.05555555555555555  //(1.0 / 18.0)
+#define OMEGA_6     0.05555555555555555  //(1.0 / 18.0)
+#define OMEGA_7     0.027777777777777776 //(1.0 / 36.0)
+#define OMEGA_8     0.027777777777777776 //(1.0 / 36.0)
+#define OMEGA_9     0.027777777777777776 //(1.0 / 36.0)
+#define OMEGA_10    0.027777777777777776 //(1.0 / 36.0)
+#define OMEGA_11    0.027777777777777776 //(1.0 / 36.0)
+#define OMEGA_12    0.027777777777777776 //(1.0 / 36.0)
+#define OMEGA_13    0.027777777777777776 //(1.0 / 36.0)
+#define OMEGA_14    0.027777777777777776 //(1.0 / 36.0)
+#define OMEGA_15    0.027777777777777776 //(1.0 / 36.0)
+#define OMEGA_16    0.027777777777777776 //(1.0 / 36.0)
+#define OMEGA_17    0.027777777777777776 //(1.0 / 36.0)
+#define OMEGA_18    0.027777777777777776 //(1.0 / 36.0)
 
 
 #define E0_X        ( 0)

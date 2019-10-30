@@ -6,7 +6,7 @@
 #include <getopt.h>
 
 
-#define RESULTS_FOLDER          "./results"
+#define RESULTS_FOLDER      "./results"
 
 
 struct lbm_options {
@@ -17,8 +17,8 @@ struct lbm_options {
     real_t velocity;
     size_t iterations;
     size_t every;
-    std::string vti_path;
-    bool store_vti;
+    std::string vtk_path;
+    bool store_vtk;
     std::string dump_path;
     bool dump_map;
     bool dump_f;
@@ -31,8 +31,8 @@ struct lbm_options {
         velocity(0.05),
         iterations(10),
         every(1),
-        vti_path(RESULTS_FOLDER),
-        store_vti(false),
+        vtk_path(RESULTS_FOLDER),
+        store_vtk(false),
         dump_path(RESULTS_FOLDER),
         dump_map(false),
         dump_f(false)
@@ -69,18 +69,18 @@ struct lbm_options {
 
     void print_help()
     {
-        std::cout << "-P  --platform            Use the specified platform                \n"
-                     "-D  --device              Use the specified device                  \n"
-                     "-d  --dim                 Set the lattice cube dimension            \n"
-                     "-n  --viscosity           Set the fluid viscosity                   \n"
-                     "-u  --velocity            Set the x velocity of the moving wall     \n"
-                     "-i  --iterations          Specify the number of iterations          \n"
-                     "-e  --every               Save simulation results every N iterations\n"
-                     "-v  --vtk_path            Specify where store VTI files             \n"
-                     "-p  --dump_path           Specify where store dumps                 \n"
-                     "-m  --dump_map            Dump the lattice map                      \n"
-                     "-f  --dump_f              Dump the lattice \"f\" for each iteration \n"
-                     "-h  --help                Show this help message and exit           \n";
+        std::cout << "-P  --platform        Use the specified platform                \n"
+                     "-D  --device          Use the specified device                  \n"
+                     "-d  --dim             Set the lattice cube dimension            \n"
+                     "-n  --viscosity       Set the fluid viscosity                   \n"
+                     "-u  --velocity        Set the x velocity of the moving wall     \n"
+                     "-i  --iterations      Specify the number of iterations          \n"
+                     "-e  --every           Save simulation results every N iterations\n"
+                     "-v  --vtk_path        Specify where store VTI files             \n"
+                     "-p  --dump_path       Specify where store dumps                 \n"
+                     "-m  --dump_map        Dump the lattice map                      \n"
+                     "-f  --dump_f          Dump the lattice \"f\" for each iteration \n"
+                     "-h  --help            Show this help message and exit           \n";
         exit(1);
     }
 
@@ -98,7 +98,7 @@ struct lbm_options {
                 {"velocity",        required_argument, nullptr, 'u'},
                 {"iterations",      required_argument, nullptr, 'i'},
                 {"every",           optional_argument, nullptr, 'e'},
-                {"vti_path",        optional_argument, nullptr, 'v'},
+                {"vtk_path",        optional_argument, nullptr, 'v'},
                 {"dump_path",       optional_argument, nullptr, 'p'},
                 {"dump_map",        no_argument,       nullptr, 'm'},
                 {"dump_f",          no_argument,       nullptr, 'f'},
@@ -161,12 +161,12 @@ struct lbm_options {
                     every = int_opt;
                     break;
                 case 'v':
-                    vti_path = std::string(optarg);
-                    if (vti_path.empty()) {
-                        vti_path = RESULTS_FOLDER;
-                        std::cout << "VTI files will be stored in:" << vti_path << std::endl;
+                    vtk_path = std::string(optarg);
+                    if (vtk_path.empty()) {
+                        vtk_path = RESULTS_FOLDER;
+                        std::cout << "VTI files will be stored in:" << vtk_path << std::endl;
                     }
-                    store_vti = true;
+                    store_vtk = true;
                     break;
                 case 'p':
                     dump_path  = std::string(optarg);
@@ -202,8 +202,10 @@ struct lbm_options {
                   << "Device Mem. (B)  = " << device_memory_size_b() << "\n"
                   << "Device Mem. (KB) = " << device_memory_size_k() << "\n"
                   << "Device Mem. (MB) = " << device_memory_size_m() << "\n"
-                  << "VTI PATH         = " << vti_path               << "\n"
-                  << "STORE VTI        = " << store_vti              << "\n"
+                  << "iterations       = " << iterations             << "\n"
+                  << "every            = " << every                  << "\n"
+                  << "VTK PATH         = " << vtk_path               << "\n"
+                  << "STORE VTI        = " << store_vtk              << "\n"
                   << "DUMP F           = " << dump_f                 << "\n"
                   << "DUMP MAP         = " << dump_map               << "\n";
     }

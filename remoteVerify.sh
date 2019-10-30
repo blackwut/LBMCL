@@ -11,15 +11,17 @@ if (($1 < 8 || $1 > 256)); then
     exit -1;
 fi
 
+DIM=$1
+
 case "$2" in
 double)
     PRECISION=double
     ;;
 single)
-    TEST=single
+    PRECISION=single
     ;;
 *)
-    TEST=single
+    PRECISION=single
     ;;
 esac
 
@@ -35,22 +37,26 @@ if [ -d $S ]; then
     rm -r $S
 fi
 
-LBMCL_COMMAND=("cd ~/LBMCL;" \
-              "rm ./results/*;" \
-              "make clean;" \
-              "export PRECISION=$PRECISION" \
-              "export ITERATIONS=$ITERATIONS" \
-              "export EVERY=$EVERY" \
-              "make test")
+LBMCL_COMMAND="cd ~/LBMCL; "
+LBMCL_COMMAND+="rm ./results/*; "
+LBMCL_COMMAND+="make clean; "
+LBMCL_COMMAND+="export DIM=$DIM; "
+LBMCL_COMMAND+="export PRECISION=$(echo "$PRECISION" | tr '[:lower:]' '[:upper:]'); "
+LBMCL_COMMAND+="export ITERATIONS=$ITERATIONS; "
+LBMCL_COMMAND+="export EVERY=$EVERY; "
+LBMCL_COMMAND+="make test;"
 
-SAILFISH_COMMAND=("cd ~/sailfish;source activate.sh;" \
-                 "rm ./results/*;" \
-                 "examples/ldc_3d.py --precision=$PRECISION --max_iters=$ITERATIONS --every=$EVERY --output_format=vtk --output=results/ldc --visc=0.0089 -v --lat_nx=30 --lat_ny=30 --lat_nz=30")
+SAILFISH_DIM="$(($DIM - 2))"
+SAILFISH_COMMAND="cd ~/sailfish;source activate.sh; "
+SAILFISH_COMMAND+="rm ./results/*; "
+SAILFISH_COMMAND+="examples/ldc_3d.py --precision=$PRECISION --max_iters=$ITERATIONS --every=$EVERY --output_format=vtk --output=results/ldc --visc=0.0089 -v --lat_nx=$SAILFISH_DIM --lat_ny=$SAILFISH_DIM --lat_nz=$SAILFISH_DIM;"
 
 mkdir $A
 mkdir $S
-ssh aottimo@sangiovese.isti.cnr.it -t $LBMCL_COMMAND
-ssh aottimo@sangiovese.isti.cnr.it -t $SAILFISH_COMMAND
+# echo "$LBMCL_COMMAND"
+# echo "$SAILFISH_COMMAND"
+ssh  aottimo@sangiovese.isti.cnr.it -t "$LBMCL_COMMAND"
+ssh  aottimo@sangiovese.isti.cnr.it -t "$SAILFISH_COMMAND"
 scp sangiovese.isti.cnr.it:~/LBMCL/results/lbmcl.*.vti $A
 scp sangiovese.isti.cnr.it:~/sailfish/results/ldc.0.*.vti $S
 

@@ -81,7 +81,7 @@ static void dump_data(const cl::CommandQueue & queue,
     } catch (cl::Error err) {
         CLUErrorPrint(err, true);
     }
-    store_vtk(opts.vti_path, rho_val, u_val, opts.dim, iteration, opts.iterations);
+    store_vtk(opts.vtk_path, rho_val, u_val, opts.dim, iteration, opts.iterations);
 }
 
 
@@ -116,7 +116,7 @@ int main(int argc, char * argv[])
     real_t * u_val = NULL;
     real_t * f_val = NULL;
 
-    if (opts.store_vti) {
+    if (opts.store_vtk) {
         rho_val = new real_t[opts.rho_dim()];
         u_val = new real_t[opts.u_dim()];
     }
@@ -209,7 +209,7 @@ int main(int argc, char * argv[])
         totalTime += CLUEventPrintStats("         initLBM", event_initLBM);
 
         if (opts.dump_map)  dump_map(queue, map);
-        if (opts.store_vti) dump_data(queue, rho, u, rho_val, u_val, iteration);
+        if (opts.store_vtk) dump_data(queue, rho, u, rho_val, u_val, iteration);
 
     } catch (cl::Error err) {
         CLUErrorPrint(err, true);
@@ -227,7 +227,7 @@ int main(int argc, char * argv[])
         processData(queue, (is_swap ? collideAndStream_swap : collideAndStream));
         iteration++;
 
-        if (opts.store_vti && (iteration != 0) && (iteration % opts.every == 0)) {
+        if (opts.store_vtk && (iteration != 0) && (iteration % opts.every == 0)) {
             dump_data(queue, rho, u, rho_val, u_val, iteration);
         }
     }

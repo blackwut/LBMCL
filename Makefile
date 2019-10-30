@@ -49,17 +49,5 @@ testall: $(TARGET)
 	@ $(RM) $(FOLDER)/lbmcl.*.vti
 	@ ./lbmcl -P$(PLATFORM) -D$(DEVICE) -d$(DIM) -n$(VISCOSITY) -u$(VELOCITY) -i$(ITERATIONS) -e$(EVERY) -v $(FOLDER) -p $(FOLDER) -f -m
 
-# testandverify: test
-# 	@ python3 verify.py -i$(ITERATIONS) -e$(EVERY) -t${SAILFISH_RES}/8 -n${FOLDER}
-
-# test32andverify: test32
-# 	@ python3 verify.py-i$(ITERATIONS) -e$(EVERY) -t${SAILFISH_RES}/32 -n${FOLDER}
-
-# testremote:
-# 	@./remoteverify.sh test
-
-# testremote32:
-# 	@./remoteverify.sh test32
-
 clean:
 	$(RM) $(TARGET) *.o *~

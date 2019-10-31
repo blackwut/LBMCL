@@ -1,7 +1,11 @@
 #pragma once
 
 #define __CL_ENABLE_EXCEPTIONS
+#if defined(__APPLE__) || defined(__MACOSX)
 #include "cl.hpp"
+#else 
+#include <CL/cl.hpp>
+#endif
 
 #include <iostream>
 #include <iomanip>
@@ -207,16 +211,26 @@ static inline void CLUBuildProgram(cl::Program & program,
     }
 }
 
+static inline double CLUEventsGetTime(const cl::Event & start,
+                                      const cl::Event & end)
+{
+    try {
+        cl_ulong start = start.getProfilingInfo<CL_PROFILING_COMMAND_START>();
+        cl_ulong end   = end.getProfilingInfo<CL_PROFILING_COMMAND_END>();
+        return (end - start) / 1000000.0;
+    } catch(cl::Error err) {
+        CLUErrorPrint(err);
+    }
+}
+
 static inline double CLUEventPrintStats(const std::string & name,
                                         const cl::Event & event)
 {
     try {
         event.wait();
-        cl_ulong start = event.getProfilingInfo<CL_PROFILING_COMMAND_START>();
-        cl_ulong end   = event.getProfilingInfo<CL_PROFILING_COMMAND_END>();
-        const double time = (end - start) / 1000000.0;
+        const double time = CLUEventsGetTime(event, event);
 
-        std::cout << name << ": "
+        std::cout << std::setw(24) << name << ": "
                   << std::fixed << std::setw(8) << std::setprecision(4)
                   << time << " ms"
                   << std::endl;

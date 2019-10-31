@@ -211,16 +211,18 @@ static inline void CLUBuildProgram(cl::Program & program,
     }
 }
 
-static inline double CLUEventsGetTime(const cl::Event & start,
-                                      const cl::Event & end)
+static inline double CLUEventsGetTime(const cl::Event & start_evt,
+                                      const cl::Event & end_evt)
 {
     try {
-        cl_ulong start = start.getProfilingInfo<CL_PROFILING_COMMAND_START>();
-        cl_ulong end   = end.getProfilingInfo<CL_PROFILING_COMMAND_END>();
+        cl_ulong start = start_evt.getProfilingInfo<CL_PROFILING_COMMAND_START>();
+        cl_ulong end   = end_evt.getProfilingInfo<CL_PROFILING_COMMAND_END>();
         return (end - start) / 1000000.0;
     } catch(cl::Error err) {
         CLUErrorPrint(err);
     }
+
+    return 0;
 }
 
 static inline double CLUEventPrintStats(const std::string & name,

@@ -5,11 +5,39 @@
 #include <iomanip>
 #include <sstream>
 
+#include <ctime>
+#include <chrono>
+
 
 #include "common.h"
 #include "CLUtil.hpp"
 #include "ArgsUtil.hpp"
 #include "StoreUtil.hpp"
+
+static std::chrono::high_resolution_clock::time_point startPoint;
+static std::chrono::high_resolution_clock::time_point endPoint;
+
+inline void startTimer() {
+    startPoint = std::chrono::high_resolution_clock::now();
+}
+
+inline void stopTimer() {
+    endPoint = std::chrono::high_resolution_clock::now();
+}
+
+inline long getTimerMS() {
+    return std::chrono::duration_cast<std::chrono::milliseconds>(endPoint - startPoint).count();
+}
+
+inline long getTimerUS() {
+    return std::chrono::duration_cast<std::chrono::microseconds>(endPoint - startPoint).count();
+}
+
+inline void printTimer() {
+    const long msec = getTimerMS();
+    const long usec = getTimerUS();
+    std::cout << "Compute time: " << msec << " ms " << usec << " usec " << std::endl;
+}
 
 
 double totalTime = 0.0;
@@ -181,6 +209,7 @@ int main(int argc, char * argv[])
     CLUCheckError(err, "cl::Buffer(map)", true);
 
 
+    startTimer();
     try {
         initLBM.setArg(0, f_stream);
         initLBM.setArg(1, f_collide);
@@ -237,14 +266,23 @@ int main(int argc, char * argv[])
         }
     }
 
-    queue.finish();
-
-    for (std::pair<cl::Event, std::string> & p : events) {
-        std::cout << std::setw(16) << p.second << ": " << std::fixed << std::setw(12) << CLUEventsGetTime(p.first, p.first) << std::endl;
-    }
+    
 
     cl::Event start_evt = events.at(1).first;
     cl::Event end_evt = events.back().first;
+
+    end_evt.wait();
+    stopTimer();
+    queue.finish();
+
+    for (std::pair<cl::Event, std::string> & p : events) {
+        std::cout << std::fixed << std::setw(16)
+                  << p.second << ": "
+                  << CLUEventsGetTime(p.first, p.first)
+                  << std::endl;
+    }
+
+    printTimer();
 
     totalTime = CLUEventsGetTime(start_evt, end_evt);
 

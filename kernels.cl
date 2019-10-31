@@ -246,11 +246,11 @@ inline real_t compute_bgk(const real_t f, const real_t f_eq)
 
 
 __kernel
-void init(__global real_t * restrict f_stream,
-          __global real_t * restrict f_collide,
-          __global real_t * restrict density,
-          __global real_t * restrict u,
-          __global int * restrict map)
+void initialize(__global real_t * restrict f_stream,
+                __global real_t * restrict f_collide,
+                __global real_t * restrict density,
+                __global real_t * restrict u,
+                __global int * restrict map)
 {
     const int x = get_global_id(0);
     const int y = get_global_id(1);

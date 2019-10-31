@@ -5,42 +5,12 @@
 #include <iomanip>
 #include <sstream>
 
-#include <ctime>
-#include <chrono>
-
 
 #include "common.h"
 #include "CLUtil.hpp"
 #include "ArgsUtil.hpp"
 #include "StoreUtil.hpp"
 
-static std::chrono::high_resolution_clock::time_point startPoint;
-static std::chrono::high_resolution_clock::time_point endPoint;
-
-inline void startTimer() {
-    startPoint = std::chrono::high_resolution_clock::now();
-}
-
-inline void stopTimer() {
-    endPoint = std::chrono::high_resolution_clock::now();
-}
-
-inline long getTimerMS() {
-    return std::chrono::duration_cast<std::chrono::milliseconds>(endPoint - startPoint).count();
-}
-
-inline long getTimerUS() {
-    return std::chrono::duration_cast<std::chrono::microseconds>(endPoint - startPoint).count();
-}
-
-inline void printTimer() {
-    const long msec = getTimerMS();
-    const long usec = getTimerUS();
-    std::cout << "Compute time: " << msec << " ms " << usec << " usec " << std::endl;
-}
-
-
-double totalTime = 0.0;
 lbm_options opts;
 std::vector< std::pair<cl::Event, std::string> > events;
 
@@ -56,7 +26,7 @@ static void dump_map(const cl::CommandQueue & queue,
             "dump_map",
             true
         );
-        events.emplace_back(read_evt, "dump_map"); //totalTime += CLUEventPrintStats("read_map", read_evt);
+        events.emplace_back(read_evt, "dump_map");
 
         store_map(opts.dump_path, map_val, opts.dim);
         delete [] map_val;
@@ -78,7 +48,7 @@ static void dump_f(const cl::CommandQueue & queue,
             "dump_f",
             true
         );
-        events.emplace_back(read_evt, "dump_f"); //totalTime += CLUEventPrintStats("read_f", read_evt);
+        events.emplace_back(read_evt, "dump_f");
     } catch (cl::Error err) {
         CLUErrorPrint(err, true);
     }
@@ -101,7 +71,7 @@ static void dump_data(const cl::CommandQueue & queue,
             "readRho",
             true
         );
-        events.emplace_back(read_rho_evt, "readRho"); // totalTime += CLUEventPrintStats("readRho", read_rho_evt);
+        events.emplace_back(read_rho_evt, "readRho");
 
 
         CLUCheckError(
@@ -109,7 +79,7 @@ static void dump_data(const cl::CommandQueue & queue,
             "readU",
             true
         );
-        events.emplace_back(read_u_evt, "readU"); // totalTime += CLUEventPrintStats("readU", read_u_evt);
+        events.emplace_back(read_u_evt, "readU");
     } catch (cl::Error err) {
         CLUErrorPrint(err, true);
     }
@@ -130,12 +100,13 @@ static void processData(const cl::CommandQueue & queue,
             "collideAndStream",
             true
         );
-        events.emplace_back(collideAndStream_evt, "collideAndStream"); //totalTime += CLUEventPrintStats("collideAndStream", collideAndStream_evt);
+        events.emplace_back(collideAndStream_evt, "collideAndStream");
 
     } catch (cl::Error err) {
         CLUErrorPrint(err, true);
     }
 }
+
 
 int main(int argc, char * argv[])
 {
@@ -157,7 +128,7 @@ int main(int argc, char * argv[])
         f_val = new real_t[opts.f_dim()];
     }
 
-    // OpenCL init
+    // OpenCL initialize
     cl::Platform platform;
     cl::Device device;
     cl::Context context;
@@ -172,22 +143,23 @@ int main(int argc, char * argv[])
     std::stringstream optionsBuilder;
     optionsBuilder << "-Werror ";
     optionsBuilder << "-I. ";
-    optionsBuilder << "-cl-fast-relaxed-math ";
-    optionsBuilder << "-DDIM="       << opts.dim << " ";
+    optionsBuilder << "-DDIM=" << opts.dim << " ";
     optionsBuilder << "-DVISCOSITY=" << opts.viscosity << " ";
-    optionsBuilder << "-DVELOCITY="  << opts.velocity << " ";
+    optionsBuilder << "-DVELOCITY=" << opts.velocity << " ";
 #ifdef FP_DOUBLE
     optionsBuilder << "-DFP_DOUBLE ";
 #else
     optionsBuilder << "-DFP_SINGLE ";
-    optionsBuilder << "-cl-single-precision-constant ";
 #endif
+    if (opts.optimize) {
+        optionsBuilder << "-cl-fast-relaxed-math ";
+    }
 
     std::cout << "Kernels options: " << optionsBuilder.str() << std::endl;
 
     CLUBuildProgram(program, context, device, "kernels.cl", optionsBuilder.str());
 
-    cl::Kernel               initLBM(program, "init");
+    cl::Kernel            initialize(program, "initialize");
     cl::Kernel      collideAndStream(program, "collideAndStream");
     cl::Kernel collideAndStream_swap(program, "collideAndStream");
 
@@ -209,13 +181,12 @@ int main(int argc, char * argv[])
     CLUCheckError(err, "cl::Buffer(map)", true);
 
 
-    startTimer();
     try {
-        initLBM.setArg(0, f_stream);
-        initLBM.setArg(1, f_collide);
-        initLBM.setArg(2, rho);
-        initLBM.setArg(3, u);
-        initLBM.setArg(4, map);
+        initialize.setArg(0, f_stream);
+        initialize.setArg(1, f_collide);
+        initialize.setArg(2, rho);
+        initialize.setArg(3, u);
+        initialize.setArg(4, map);
 
         // 1
         collideAndStream.setArg(0, f_collide);
@@ -231,16 +202,15 @@ int main(int argc, char * argv[])
         collideAndStream_swap.setArg(4, f_collide);
 
 
-        // initLBM
+        // initialize
         cl::Event init_evt;
         cl::NDRange gws = cl::NDRange(opts.dim, opts.dim, opts.dim);
         CLUCheckError(
-            queue.enqueueNDRangeKernel(initLBM, cl::NullRange, gws, cl::NullRange, nullptr, &init_evt),
-            "initLBM",
+            queue.enqueueNDRangeKernel(initialize, cl::NullRange, gws, cl::NullRange, nullptr, &init_evt),
+            "initialize",
             true
         );
-        //totalTime += CLUEventPrintStats("         initLBM", init_evt);
-        events.emplace_back(init_evt, "init");
+        events.emplace_back(init_evt, "initialize");
 
         if (opts.dump_map)  dump_map(queue, map);
         if (opts.store_vtk) dump_data(queue, rho, u, rho_val, u_val, iteration);
@@ -266,16 +236,9 @@ int main(int argc, char * argv[])
         }
     }
 
-    
-
-    cl::Event start_evt = events.at(1).first;
-    cl::Event end_evt = events.back().first;
-
-    end_evt.wait();
-    stopTimer();
     queue.finish();
 
-    totalTime = 0.0;
+    double totalTime = 0.0;
     for (std::pair<cl::Event, std::string> & p : events) {
         const double time_evt = CLUEventsGetTime(p.first, p.first);
         totalTime += time_evt;
@@ -286,21 +249,14 @@ int main(int argc, char * argv[])
                   << std::endl;
     }
 
-    printTimer();
-
-    // totalTime = CLUEventsGetTime(start_evt, end_evt);
-
-    std::cout << " Total time:"
-              << std::fixed << std::setw(12) << std::setprecision(5)
+    std::cout << " Total time: "
               << totalTime << " ms"
               << std::endl;
 
     double mlups = ((opts.dim - 2) * (opts.dim - 2) * (opts.dim - 2) * opts.iterations) / (totalTime * 1000);
-    std::cout << "Performance:"
-              << std::fixed << std::setw(12) << std::setprecision(5)
+    std::cout << "Performance: "
               << mlups << " MLUPS"
               << std::endl;
-
 
     if (rho_val != nullptr) delete[] rho_val;
     if (u_val != nullptr)   delete[] u_val;

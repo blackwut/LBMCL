@@ -275,16 +275,20 @@ int main(int argc, char * argv[])
     stopTimer();
     queue.finish();
 
+    totalTime = 0.0;
     for (std::pair<cl::Event, std::string> & p : events) {
+        const double time_evt = CLUEventsGetTime(p.first, p.first);
+        totalTime += time_evt;
+
         std::cout << std::fixed << std::setw(16)
                   << p.second << ": "
-                  << CLUEventsGetTime(p.first, p.first)
+                  << time_evt
                   << std::endl;
     }
 
     printTimer();
 
-    totalTime = CLUEventsGetTime(start_evt, end_evt);
+    // totalTime = CLUEventsGetTime(start_evt, end_evt);
 
     std::cout << " Total time:"
               << std::fixed << std::setw(12) << std::setprecision(5)

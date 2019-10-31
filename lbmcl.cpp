@@ -24,7 +24,7 @@ static void dump_map(const cl::CommandQueue & queue,
             "dump_f",
             true
         );
-        totalTime += CLUEventPrintStats("        read_map", read_evt);
+        totalTime += CLUEventPrintStats("read_map", read_evt);
 
         store_map(opts.dump_path, map_val, opts.dim);
         delete [] map_val;
@@ -46,7 +46,7 @@ static void dump_f(const cl::CommandQueue & queue,
             "dump_f",
             true
         );
-        totalTime += CLUEventPrintStats("          read_f", read_evt);
+        totalTime += CLUEventPrintStats("read_f", read_evt);
     } catch (cl::Error err) {
         CLUErrorPrint(err, true);
     }
@@ -69,7 +69,7 @@ static void dump_data(const cl::CommandQueue & queue,
             "readRho",
             true
         );
-        totalTime += CLUEventPrintStats("         readRho", event_read_rho);
+        totalTime += CLUEventPrintStats("readRho", event_read_rho);
 
 
         CLUCheckError(
@@ -77,7 +77,7 @@ static void dump_data(const cl::CommandQueue & queue,
             "readU",
             true
         );
-        totalTime += CLUEventPrintStats("           readU", event_read_rho);
+        totalTime += CLUEventPrintStats("readU", event_read_rho);
     } catch (cl::Error err) {
         CLUErrorPrint(err, true);
     }
@@ -91,14 +91,14 @@ static void processData(const cl::CommandQueue & queue,
     cl::NDRange lws = cl::NDRange(opts.dim, 1, 1);
     cl::NDRange gws = cl::NDRange(opts.dim, opts.dim, opts.dim);
     try {
-        cl::Event event_collideAndStream;
+        cl::Event collideAndStream_evt;
 
         CLUCheckError(
-            queue.enqueueNDRangeKernel(collideAndStream, cl::NullRange, gws, lws, NULL, &event_collideAndStream),
+            queue.enqueueNDRangeKernel(collideAndStream, cl::NullRange, gws, lws, NULL, &collideAndStream_evt),
             "collideAndStream",
             true
         );
-        totalTime += CLUEventPrintStats("collideAndStream", event_collideAndStream);
+        totalTime += CLUEventPrintStats("collideAndStream", collideAndStream_evt);
 
     } catch (cl::Error err) {
         CLUErrorPrint(err, true);
@@ -155,16 +155,16 @@ int main(int argc, char * argv[])
 
     CLUBuildProgram(program, context, device, "kernels.cl", optionsBuilder.str());
 
-    cl::Kernel                initLBM(program, "init");
+    cl::Kernel               initLBM(program, "init");
     cl::Kernel      collideAndStream(program, "collideAndStream");
     cl::Kernel collideAndStream_swap(program, "collideAndStream");
 
     cl_int err;
 
-    cl::Buffer f_stream = cl::Buffer(context, CL_MEM_READ_WRITE, opts.f_size(), NULL, &err);
+    cl::Buffer f_stream = cl::Buffer(context, (opts.dump_f ? CL_MEM_READ_WRITE : CL_MEM_HOST_NO_ACCESS), opts.f_size(), NULL, &err);
     CLUCheckError(err, "cl::Buffer(f_stream)", true);
 
-    cl::Buffer f_collide = cl::Buffer(context, CL_MEM_READ_WRITE, opts.f_size(), NULL, &err);
+    cl::Buffer f_collide = cl::Buffer(context, (opts.dump_f ? CL_MEM_READ_WRITE : CL_MEM_HOST_NO_ACCESS), opts.f_size(), NULL, &err);
     CLUCheckError(err, "cl::Buffer(f_collide))", true);
 
     cl::Buffer rho = cl::Buffer(context, CL_MEM_READ_WRITE, opts.rho_size(), NULL, &err);
@@ -173,7 +173,7 @@ int main(int argc, char * argv[])
     cl::Buffer u = cl::Buffer(context, CL_MEM_READ_WRITE, opts.u_size(), NULL, &err);
     CLUCheckError(err, "cl::Buffer(u)", true);
 
-    cl::Buffer map = cl::Buffer(context, CL_MEM_READ_WRITE, opts.map_size(), NULL, &err);
+    cl::Buffer map = cl::Buffer(context, (opts.dump_map ? CL_MEM_READ_WRITE : CL_MEM_HOST_NO_ACCESS), opts.map_size(), NULL, &err);
     CLUCheckError(err, "cl::Buffer(map)", true);
 
 

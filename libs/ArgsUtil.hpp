@@ -19,6 +19,7 @@ struct lbm_options {
     size_t every;
     std::string vtk_path;
     bool store_vtk;
+    bool optimize;
     std::string dump_path;
     bool dump_map;
     bool dump_f;
@@ -33,6 +34,7 @@ struct lbm_options {
         every(1),
         vtk_path(RESULTS_FOLDER),
         store_vtk(false),
+        optimize(false),
         dump_path(RESULTS_FOLDER),
         dump_map(false),
         dump_f(false)
@@ -69,18 +71,19 @@ struct lbm_options {
 
     void print_help()
     {
-        std::cout << "-P  --platform        Use the specified platform                \n"
-                     "-D  --device          Use the specified device                  \n"
-                     "-d  --dim             Set the lattice cube dimension            \n"
-                     "-n  --viscosity       Set the fluid viscosity                   \n"
-                     "-u  --velocity        Set the x velocity of the moving wall     \n"
-                     "-i  --iterations      Specify the number of iterations          \n"
-                     "-e  --every           Save simulation results every N iterations\n"
-                     "-v  --vtk_path        Specify where store VTI files             \n"
-                     "-p  --dump_path       Specify where store dumps                 \n"
-                     "-m  --dump_map        Dump the lattice map                      \n"
-                     "-f  --dump_f          Dump the lattice \"f\" for each iteration \n"
-                     "-h  --help            Show this help message and exit           \n";
+        std::cout << "-P  --platform        Use the specified platform                 \n"
+                     "-D  --device          Use the specified device                   \n"
+                     "-d  --dim             Set the lattice cube dimension             \n"
+                     "-n  --viscosity       Set the fluid viscosity                    \n"
+                     "-u  --velocity        Set the x velocity of the moving wall      \n"
+                     "-i  --iterations      Specify the number of iterations           \n"
+                     "-e  --every           Save simulation results every N iterations \n"
+                     "-o  --optimize        Use \"fast-relaxed-math\" in OpenCL kernels\n"
+                     "-v  --vtk_path        Specify where store VTI files              \n"
+                     "-p  --dump_path       Specify where store dumps                  \n"
+                     "-m  --dump_map        Dump the lattice map                       \n"
+                     "-f  --dump_f          Dump the lattice \"f\" for each iteration  \n"
+                     "-h  --help            Show this help message and exit            \n";
         exit(1);
     }
 
@@ -89,7 +92,7 @@ struct lbm_options {
     {
         opterr = 0;
 
-        const char * const short_opts = "P:D:d:n:u:i:e:v:p:mfh";
+        const char * const short_opts = "P:D:d:n:u:i:e:v:op:mfh";
         const option long_opts[] = {
                 {"platform",        required_argument, nullptr, 'P'},
                 {"device",          required_argument, nullptr, 'D'},
@@ -98,6 +101,7 @@ struct lbm_options {
                 {"velocity",        required_argument, nullptr, 'u'},
                 {"iterations",      required_argument, nullptr, 'i'},
                 {"every",           optional_argument, nullptr, 'e'},
+                {"optimize",        no_argument,       nullptr, 'o'},
                 {"vtk_path",        optional_argument, nullptr, 'v'},
                 {"dump_path",       optional_argument, nullptr, 'p'},
                 {"dump_map",        no_argument,       nullptr, 'm'},
@@ -160,6 +164,9 @@ struct lbm_options {
                     }
                     every = int_opt;
                     break;
+                case 'o':
+                    optimize = true;
+                    break;
                 case 'v':
                     vtk_path = std::string(optarg);
                     if (vtk_path.empty()) {
@@ -203,11 +210,11 @@ struct lbm_options {
                   << "Device Mem. (KB) = " << device_memory_size_k() << "\n"
                   << "Device Mem. (MB) = " << device_memory_size_m() << "\n"
                   << "iterations       = " << iterations             << "\n"
+                  << "optimize         = " << optimize               << "\n"
                   << "every            = " << every                  << "\n"
                   << "VTK PATH         = " << vtk_path               << "\n"
                   << "STORE VTI        = " << store_vtk              << "\n"
                   << "DUMP F           = " << dump_f                 << "\n"
                   << "DUMP MAP         = " << dump_map               << "\n";
     }
-
 };

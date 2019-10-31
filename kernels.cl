@@ -27,10 +27,17 @@
 #define INITIAL_VELOCITY_Z      0.0
 
 #define TAU                     ((3.0 * VISCOSITY) + 0.5)
-#define INV_TAU                 (1.0 / TAU) // 1.89861401177140698415e+00f
+#define INV_TAU                 (1.0 / TAU) // 1.89861401177140698415
+
+#define CSoA                    0
+#if CSoA
+#define STRIDE                  32
+#define IDxyzq(id, q)           ((id) / STRIDE * Q + q) * STRIDE + ((id) & (STRIDE - 1))
+#else
+#define IDxyzq(id, q)           ((id) * (Q_DIM) + (q))
+#endif
 
 #define IDxyz(x, y, z)          ((x) + ((y) * (DIM)) + ((z) * (DIM) * (DIM)))
-#define IDxyzq(id, w)           ((id) * (Q_DIM) + (w))
 #define UX(id)                  u[(id) * 3 + 0]
 #define UY(id)                  u[(id) * 3 + 1]
 #define UZ(id)                  u[(id) * 3 + 2]
@@ -73,25 +80,25 @@
     UNROLL_X(14)
 
 
-#define OMEGA_0     0.3333333333333333   //(1.0 /  3.0)
-#define OMEGA_1     0.05555555555555555  //(1.0 / 18.0)
-#define OMEGA_2     0.05555555555555555  //(1.0 / 18.0)
-#define OMEGA_3     0.05555555555555555  //(1.0 / 18.0)
-#define OMEGA_4     0.05555555555555555  //(1.0 / 18.0)
-#define OMEGA_5     0.05555555555555555  //(1.0 / 18.0)
-#define OMEGA_6     0.05555555555555555  //(1.0 / 18.0)
-#define OMEGA_7     0.027777777777777776 //(1.0 / 36.0)
-#define OMEGA_8     0.027777777777777776 //(1.0 / 36.0)
-#define OMEGA_9     0.027777777777777776 //(1.0 / 36.0)
-#define OMEGA_10    0.027777777777777776 //(1.0 / 36.0)
-#define OMEGA_11    0.027777777777777776 //(1.0 / 36.0)
-#define OMEGA_12    0.027777777777777776 //(1.0 / 36.0)
-#define OMEGA_13    0.027777777777777776 //(1.0 / 36.0)
-#define OMEGA_14    0.027777777777777776 //(1.0 / 36.0)
-#define OMEGA_15    0.027777777777777776 //(1.0 / 36.0)
-#define OMEGA_16    0.027777777777777776 //(1.0 / 36.0)
-#define OMEGA_17    0.027777777777777776 //(1.0 / 36.0)
-#define OMEGA_18    0.027777777777777776 //(1.0 / 36.0)
+#define OMEGA_0     (1.0 /  3.0)
+#define OMEGA_1     (1.0 / 18.0)
+#define OMEGA_2     (1.0 / 18.0)
+#define OMEGA_3     (1.0 / 18.0)
+#define OMEGA_4     (1.0 / 18.0)
+#define OMEGA_5     (1.0 / 18.0)
+#define OMEGA_6     (1.0 / 18.0)
+#define OMEGA_7     (1.0 / 36.0)
+#define OMEGA_8     (1.0 / 36.0)
+#define OMEGA_9     (1.0 / 36.0)
+#define OMEGA_10    (1.0 / 36.0)
+#define OMEGA_11    (1.0 / 36.0)
+#define OMEGA_12    (1.0 / 36.0)
+#define OMEGA_13    (1.0 / 36.0)
+#define OMEGA_14    (1.0 / 36.0)
+#define OMEGA_15    (1.0 / 36.0)
+#define OMEGA_16    (1.0 / 36.0)
+#define OMEGA_17    (1.0 / 36.0)
+#define OMEGA_18    (1.0 / 36.0)
 
 
 #define E0_X        ( 0)
@@ -230,6 +237,7 @@ inline int get_cell_type(const int x, const int y, const int z)
     return cell_type;
 }
 
+
 // Bhatnagar-Gross-Kroop approximation collision operator
 inline real_t compute_bgk(const real_t f, const real_t f_eq)
 {
@@ -238,7 +246,11 @@ inline real_t compute_bgk(const real_t f, const real_t f_eq)
 
 
 __kernel
-void init(__global real_t * f_stream, __global real_t * f_collide, __global real_t * density, __global real_t * u, __global int * map)
+void init(__global real_t * restrict f_stream,
+          __global real_t * restrict f_collide,
+          __global real_t * restrict density,
+          __global real_t * restrict u,
+          __global int * restrict map)
 {
     const int x = get_global_id(0);
     const int y = get_global_id(1);
@@ -300,7 +312,11 @@ void init(__global real_t * f_stream, __global real_t * f_collide, __global real
 
 
 __kernel
-void collideAndStream(__global real_t * f_collide, __global real_t * density, __global real_t * u, __global const int * map, __global real_t * f_stream)
+void collideAndStream(__global const real_t * restrict f_collide,
+                      __global real_t * restrict density,
+                      __global real_t * restrict u,
+                      __global const int * restrict map,
+                      __global real_t * restrict f_stream)
 {
     const int x = get_global_id(0);
     const int y = get_global_id(1);
@@ -536,17 +552,17 @@ void collideAndStream(__global real_t * f_collide, __global real_t * density, __
     if (!propagation_only && alive)
     {
         // Update the 0-th direction distribution
-        f_stream[IDxyzq(id, 0)] = f0;                                                       //  0  0  0
+        f_stream[IDxyzq(id, 0)] = f0;                                                   //  0  0  0
         // Propagation in directions orthogonal to the X axis (global memory)
-        if (y < (DIM-1)) f_stream[IDXYZW(   x, y+1,   z,  2)] = f2;                         //  0 +1  0
-        if (y > 0        ) f_stream[IDXYZW(   x, y-1,   z,  4)] = f4;                       //  0 -1  0
-        if (z < (DIM-1)) f_stream[IDXYZW(   x,   y, z+1,  6)] = f6;                         //  0  0 +1
-        if (z > 0        ) f_stream[IDXYZW(   x,   y, z-1,  5)] = f5;                       //  0  0 -1
+        if (y < (DIM-1)) f_stream[IDXYZW(   x, y+1,   z,  2)] = f2;                     //  0 +1  0
+        if (y > 0      ) f_stream[IDXYZW(   x, y-1,   z,  4)] = f4;                     //  0 -1  0
+        if (z < (DIM-1)) f_stream[IDXYZW(   x,   y, z+1,  6)] = f6;                     //  0  0 +1
+        if (z > 0      ) f_stream[IDXYZW(   x,   y, z-1,  5)] = f5;                     //  0  0 -1
 
-        if (y < (DIM-1) && z < (DIM-1)) f_stream[IDXYZW(   x, y+1, z+1, 16)] = f16;         //  0 +1 +1
-        if (y > 0         && z < (DIM-1)) f_stream[IDXYZW(   x, y-1, z+1, 18)] = f18;       //  0 -1 +1
-        if (y < (DIM-1) && z > 0        ) f_stream[IDXYZW(   x, y+1, z-1, 12)] = f12;       //  0 +1 -1
-        if (y > 0         && z > 0        ) f_stream[IDXYZW(   x, y-1, z-1, 14)] = f14;     //  0 -1 -1
+        if (y < (DIM-1) && z < (DIM-1)) f_stream[IDXYZW(   x, y+1, z+1, 16)] = f16;     //  0 +1 +1
+        if (y > 0       && z < (DIM-1)) f_stream[IDXYZW(   x, y-1, z+1, 18)] = f18;     //  0 -1 +1
+        if (y < (DIM-1) && z > 0      ) f_stream[IDXYZW(   x, y+1, z-1, 12)] = f12;     //  0 +1 -1
+        if (y > 0       && z > 0      ) f_stream[IDXYZW(   x, y-1, z-1, 14)] = f14;     //  0 -1 -1
 
         // E propagation in shared memory
         if (x < (DIM-1)) {
@@ -560,11 +576,11 @@ void collideAndStream(__global real_t * f_collide, __global real_t * density, __
                 _f15[lx + 1] = f15;
                 // E propagation in global memory (at right block boundary)
             } else {
-                                   f_stream[IDXYZW( x+1,   y,   z,  1)] =  f1;              // +1  0  0
-                if (y < (DIM-1)) f_stream[IDXYZW( x+1, y+1,   z,  7)] =  f7;                // +1 +1  0
-                if (y > 0        ) f_stream[IDXYZW( x+1, y-1,   z, 10)] = f10;              // +1 -1  0
-                if (z < (DIM-1)) f_stream[IDXYZW( x+1,   y, z+1, 15)] = f15;                // +1  0 +1
-                if (z > 0        ) f_stream[IDXYZW( x+1,   y, z-1, 11)] = f11;              // +1  0 -1
+                                 f_stream[IDXYZW( x+1,   y,   z,  1)] =  f1;            // +1  0  0
+                if (y < (DIM-1)) f_stream[IDXYZW( x+1, y+1,   z,  7)] =  f7;            // +1 +1  0
+                if (y > 0      ) f_stream[IDXYZW( x+1, y-1,   z, 10)] = f10;            // +1 -1  0
+                if (z < (DIM-1)) f_stream[IDXYZW( x+1,   y, z+1, 15)] = f15;            // +1  0 +1
+                if (z > 0      ) f_stream[IDXYZW( x+1,   y, z-1, 11)] = f11;            // +1  0 -1
             }
         }
     }
@@ -575,11 +591,11 @@ void collideAndStream(__global real_t * f_collide, __global real_t * density, __
     if (lx > 0 && x < DIM && !propagation_only && alive)
     {
         if (_f1[lx] != -1.0) {
-                               f_stream[IDXYZW( x,   y,   z,  1)] =  _f1[lx];               //  0  0  0
-            if (y < (DIM-1)) f_stream[IDXYZW( x, y+1,   z,  7)] =  _f7[lx];                 //  0 +1  0
-            if (y > 0        ) f_stream[IDXYZW( x, y-1,   z, 10)] = _f10[lx];               //  0 -1  0
-            if (z < (DIM-1)) f_stream[IDXYZW( x,   y, z+1, 15)] = _f15[lx];                 //  0  0 +1
-            if (z > 0        ) f_stream[IDXYZW( x,   y, z-1, 11)] = _f11[lx];               //  0  0 -1
+                             f_stream[IDXYZW( x,   y,   z,  1)] =  _f1[lx];             //  0  0  0
+            if (y < (DIM-1)) f_stream[IDXYZW( x, y+1,   z,  7)] =  _f7[lx];             //  0 +1  0
+            if (y > 0      ) f_stream[IDXYZW( x, y-1,   z, 10)] = _f10[lx];             //  0 -1  0
+            if (z < (DIM-1)) f_stream[IDXYZW( x,   y, z+1, 15)] = _f15[lx];             //  0  0 +1
+            if (z > 0      ) f_stream[IDXYZW( x,   y, z-1, 11)] = _f11[lx];             //  0  0 -1
         }
     }
 
@@ -600,11 +616,11 @@ void collideAndStream(__global real_t * f_collide, __global real_t * density, __
             _f17[lx - 1] = f17;
             // W propagation in global memory (at left block boundary)
         } else if (x > 0) {
-                               f_stream[IDXYZW( x-1,   y,   z,  3)] =  f3;                  // -1  0  0
-            if (y < (DIM-1)) f_stream[IDXYZW( x-1, y+1,   z,  8)] =  f8;                    // -1 +1  0
-            if (y > 0        ) f_stream[IDXYZW( x-1, y-1,   z,  9)] =  f9;                  // -1 -1  0
-            if (z < (DIM-1)) f_stream[IDXYZW( x-1,   y, z+1, 17)] = f17;                    // -1  0 +1
-            if (z > 0        ) f_stream[IDXYZW( x-1,   y, z-1, 13)] = f13;                  // -1  0 -1
+                             f_stream[IDXYZW( x-1,   y,   z,  3)] =  f3;                // -1  0  0
+            if (y < (DIM-1)) f_stream[IDXYZW( x-1, y+1,   z,  8)] =  f8;                // -1 +1  0
+            if (y > 0      ) f_stream[IDXYZW( x-1, y-1,   z,  9)] =  f9;                // -1 -1  0
+            if (z < (DIM-1)) f_stream[IDXYZW( x-1,   y, z+1, 17)] = f17;                // -1  0 +1
+            if (z > 0      ) f_stream[IDXYZW( x-1,   y, z-1, 13)] = f13;                // -1  0 -1
         }
     }
 
@@ -613,11 +629,11 @@ void collideAndStream(__global real_t * f_collide, __global real_t * density, __
     if (lx < 63 && x < (DIM-1) && !propagation_only && alive)
     {
         if (_f1[lx] != -1.0) {
-                               f_stream[IDXYZW( x,   y,   z,  3)] =  _f3[lx];               //  0  0  0
-            if (y < (DIM-1)) f_stream[IDXYZW( x, y+1,   z,  8)] =  _f8[lx];                 //  0 +1  0
-            if (y > 0        ) f_stream[IDXYZW( x, y-1,   z,  9)] =  _f9[lx];               //  0 -1  0
-            if (z < (DIM-1)) f_stream[IDXYZW( x,   y, z+1, 17)] = _f17[lx];                 //  0  0 +1
-            if (z > 0        ) f_stream[IDXYZW( x,   y, z-1, 13)] = _f13[lx];               //  0  0 -1
+                             f_stream[IDXYZW( x,   y,   z,  3)] =  _f3[lx];             //  0  0  0
+            if (y < (DIM-1)) f_stream[IDXYZW( x, y+1,   z,  8)] =  _f8[lx];             //  0 +1  0
+            if (y > 0      ) f_stream[IDXYZW( x, y-1,   z,  9)] =  _f9[lx];             //  0 -1  0
+            if (z < (DIM-1)) f_stream[IDXYZW( x,   y, z+1, 17)] = _f17[lx];             //  0  0 +1
+            if (z > 0      ) f_stream[IDXYZW( x,   y, z-1, 13)] = _f13[lx];             //  0  0 -1
         }
     }
 #endif

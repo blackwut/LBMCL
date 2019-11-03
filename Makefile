@@ -32,7 +32,7 @@ else
 endif
 
 
-$(TARGET): $(TARGET).cpp common.h kernels.cl # CLUtil.hpp ArgsUtil.hpp StoreUtil.hpp
+$(TARGET): $(TARGET).cpp common.h kernels.cl
 	$(CXX)  -o $@ $@.cpp $(LDLIBS) $(CXXFLAGS) $(INCLUDES) -DFP_$(PRECISION)
 
 
@@ -40,14 +40,14 @@ test: $(TARGET)
 	@ $(RM) $(FOLDER)/map.dump
 	@ $(RM) $(FOLDER)/f_*.dump
 	@ $(RM) $(FOLDER)/lbmcl.*.vti
-	@ ./lbmcl -P$(PLATFORM) -D$(DEVICE) -d$(DIM) -n$(VISCOSITY) -u$(VELOCITY) -i$(ITERATIONS) -e$(EVERY) -v $(FOLDER)
+	@ ./lbmcl -P$(PLATFORM) -D$(DEVICE) -d$(DIM) -n$(VISCOSITY) -u$(VELOCITY) -i$(ITERATIONS) -e$(EVERY) -o -v $(FOLDER)
 
 
 testall: $(TARGET)
 	@ $(RM) $(FOLDER)/map.dump
 	@ $(RM) $(FOLDER)/f_*.dump
 	@ $(RM) $(FOLDER)/lbmcl.*.vti
-	@ ./lbmcl -P$(PLATFORM) -D$(DEVICE) -d$(DIM) -n$(VISCOSITY) -u$(VELOCITY) -i$(ITERATIONS) -e$(EVERY) -v $(FOLDER) -p $(FOLDER) -f -m
+	@ ./lbmcl -P$(PLATFORM) -D$(DEVICE) -d$(DIM) -n$(VISCOSITY) -u$(VELOCITY) -i$(ITERATIONS) -e$(EVERY) -o -v $(FOLDER) -p $(FOLDER) -f -m
 
 clean:
-	$(RM) $(TARGET) *.o *~
+	$(RM) $(TARGET) *.o *~ $(FOLDER)/*.dump $(FOLDER)/*.vti

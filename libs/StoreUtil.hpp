@@ -59,6 +59,7 @@ static void store_map(const std::string & dump_path,
 static void store_f(const std::string & dump_path,
                     const real_t * f,
                     const size_t dim,
+                    const size_t stride,
                     const size_t iteration,
                     const size_t iterations)
 {
@@ -90,7 +91,7 @@ static void store_f(const std::string & dump_path,
                 const size_t index = IDxyzDIM(x, y, z, dim);
                 dump << std::setw(dim_digits) << "(" << x << "," << y << "," << z << ") ";
                 for (size_t q = 0; q < Q; ++q) {
-                    dump << std::fixed << std::setw(DUMP_PRECISION + 2) << std::setprecision(DUMP_PRECISION) << f[IDxyzqDIM(index, q, Q_DIM)] << " ";
+                    dump << std::fixed << std::setw(DUMP_PRECISION + 2) << std::setprecision(DUMP_PRECISION) << f[IDxyzqDIM(index, q, Q_DIM, stride)] << " ";
                 }
                 dump << std::endl;
             }
@@ -152,9 +153,10 @@ static void store_vtk(const std::string & vtk_path,
     for (size_t z = from; z < (to); ++z) {
         for (size_t y = from; y < (to); ++y) {
             for (size_t x = from; x < (to); ++x) {
-                const real_t val_x = u_val[IDxyzDIM(x, y, z, dim) * 3 + 0];
-                const real_t val_y = u_val[IDxyzDIM(x, y, z, dim) * 3 + 1];
-                const real_t val_z = u_val[IDxyzDIM(x, y, z, dim) * 3 + 2];
+                const size_t id = IDxyzDIM(x, y, z, dim);
+                const real_t val_x = u_val[IDux(id)];
+                const real_t val_y = u_val[IDuy(id)];
+                const real_t val_z = u_val[IDuz(id)];
                 vtk << std::scientific << std::setprecision(VTK_PRECISION) << val_x << " "
                     << std::scientific << std::setprecision(VTK_PRECISION) << val_y << " "
                     << std::scientific << std::setprecision(VTK_PRECISION) << val_z << " ";

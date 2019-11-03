@@ -19,6 +19,8 @@ struct lbm_options {
     size_t every;
     std::string vtk_path;
     bool store_vtk;
+    size_t lws;
+    size_t stride;
     bool optimize;
     std::string dump_path;
     bool dump_map;
@@ -34,6 +36,8 @@ struct lbm_options {
         every(1),
         vtk_path(RESULTS_FOLDER),
         store_vtk(false),
+        lws(32),
+        stride(32),
         optimize(false),
         dump_path(RESULTS_FOLDER),
         dump_map(false),
@@ -71,20 +75,41 @@ struct lbm_options {
 
     void print_help()
     {
-        std::cout << "-P  --platform        Use the specified platform                 \n"
-                     "-D  --device          Use the specified device                   \n"
-                     "-d  --dim             Set the lattice cube dimension             \n"
-                     "-n  --viscosity       Set the fluid viscosity                    \n"
-                     "-u  --velocity        Set the x velocity of the moving wall      \n"
-                     "-i  --iterations      Specify the number of iterations           \n"
-                     "-e  --every           Save simulation results every N iterations \n"
-                     "-o  --optimize        Use \"fast-relaxed-math\" in OpenCL kernels\n"
-                     "-v  --vtk_path        Specify where store VTI files              \n"
-                     "-p  --dump_path       Specify where store dumps                  \n"
-                     "-m  --dump_map        Dump the lattice map                       \n"
-                     "-f  --dump_f          Dump the lattice \"f\" for each iteration  \n"
-                     "-h  --help            Show this help message and exit            \n";
+        std::cout << "-P  --platform            Use the specified platform                     \n"
+                     "-D  --device              Use the specified device                       \n"
+                     "-d  --dim                 Set the lattice cube dimension                 \n"
+                     "-n  --viscosity           Set the fluid viscosity                        \n"
+                     "-u  --velocity            Set the x velocity of the moving wall          \n"
+                     "-i  --iterations          Specify the number of iterations               \n"
+                     "-e  --every               Save simulation results every N iterations     \n"
+                     "-w  --work_group_size     Specify the work group size of kernel launch   \n"
+                     "-s  --stride              Specify the stride used in CSoA memory layout  \n"
+                     "-o  --optimize            Use \"cl-fast-relaxed-math\" in OpenCL kernels \n"
+                     "-v  --vtk_path            Specify where store VTI files                  \n"
+                     "-p  --dump_path           Specify where store dumps                      \n"
+                     "-m  --dump_map            Dump the lattice map                           \n"
+                     "-f  --dump_f              Dump the lattice \"f\" for each iteration      \n"
+                     "-h  --help                Show this help message and exit                \n";
         exit(1);
+    }
+
+
+    bool is_power_of_two(size_t x)
+    {
+        return x && !(x & (x - 1));
+    }
+
+
+    size_t most_significant_bit(size_t n)
+    {
+        n |= n >>  1;
+        n |= n >>  2;
+        n |= n >>  4;
+        n |= n >>  8;
+        n |= n >> 16;
+        n |= n >> 32;
+        n = n + 1;
+        return (n >> 1);
     }
 
 
@@ -92,7 +117,7 @@ struct lbm_options {
     {
         opterr = 0;
 
-        const char * const short_opts = "P:D:d:n:u:i:e:v:op:mfh";
+        const char * const short_opts = "P:D:d:n:u:i:e:v:w:s:op:mfh";
         const option long_opts[] = {
                 {"platform",        required_argument, nullptr, 'P'},
                 {"device",          required_argument, nullptr, 'D'},
@@ -101,6 +126,8 @@ struct lbm_options {
                 {"velocity",        required_argument, nullptr, 'u'},
                 {"iterations",      required_argument, nullptr, 'i'},
                 {"every",           optional_argument, nullptr, 'e'},
+                {"work_group_size", optional_argument, nullptr, 'w'},
+                {"stride",          optional_argument, nullptr, 's'},
                 {"optimize",        no_argument,       nullptr, 'o'},
                 {"vtk_path",        optional_argument, nullptr, 'v'},
                 {"dump_path",       optional_argument, nullptr, 'p'},
@@ -164,6 +191,20 @@ struct lbm_options {
                     }
                     every = int_opt;
                     break;
+                case 'w':
+                    if ((int_opt = std::stoi(optarg)) < 0) {
+                        std::cerr << "Please enter a valid number for work_group_size value" << std::endl;
+                        exit(1);
+                    }
+                    lws = int_opt;
+                    break;
+                case 's':
+                    if ((int_opt = std::stoi(optarg)) < 0) {
+                        std::cerr << "Please enter a valid number for stride value" << std::endl;
+                        exit(1);
+                    }
+                    stride = int_opt;
+                    break;
                 case 'o':
                     optimize = true;
                     break;
@@ -195,6 +236,22 @@ struct lbm_options {
                     break;
             }
         }
+
+        if (lws > dim) {
+            lws = dim;
+            std::cout << "work_group_size is set to " << dim << std::endl;
+        }
+
+        if (stride > dim) {
+            stride = dim;
+            std::cout << "stride is set to " << dim << std::endl;
+        }
+
+        if (!is_power_of_two(stride)) {
+            stride = most_significant_bit(stride);
+            std::cout << "stride is rounded to the previous power of 2 that is " << stride << std::endl;
+        }
+
     }
 
 
@@ -210,6 +267,8 @@ struct lbm_options {
                   << "Device Mem. (KB) = " << device_memory_size_k() << "\n"
                   << "Device Mem. (MB) = " << device_memory_size_m() << "\n"
                   << "iterations       = " << iterations             << "\n"
+                  << "work_group_size  = " << lws                    << "\n"
+                  << "stride           = " << stride                 << "\n"
                   << "optimize         = " << optimize               << "\n"
                   << "every            = " << every                  << "\n"
                   << "VTK PATH         = " << vtk_path               << "\n"

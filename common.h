@@ -10,16 +10,9 @@ typedef float real_t;
 
 #define D                       3
 #define Q                       19
-#define Q_DIM                   32
+#define Q_DIM                   19
 
-#define CSoA                    0
-#if CSoA
-#define STRIDE                  32
-#define IDxyzqDIM(id, q, dim)   ((id) / STRIDE * (dim) + q) * STRIDE + ((id) & (STRIDE - 1))
-#else
-#define IDxyzqDIM(id, q, dim)   ((id) * (dim) + (q))
-#endif
-
+#define IDxyzqDIM(id, q, dim, stride)   (((id) / (stride)) * (dim) + q) * (stride) + ((id) & ((stride) - 1))
 #define IDxyzDIM(x, y, z, dim)  ((x) + ((y) * (dim)) + ((z) * (dim) * (dim)))
 #define IDux(id)                ((id) * D + 0)
 #define IDuy(id)                ((id) * D + 1)

@@ -15,10 +15,12 @@ FOLDER		= ./results
 SAILFISH_RES= ./sailfish_results
 
 # User defined options in shell environment using "export" command
-DIM			?= 8
+DIM			?= 32
 PRECISION	?= SINGLE # SINGLE or DOUBLE
 ITERATIONS	?= 500
 EVERY		?= 20
+LWS			?= 32
+STRIDE		?= 8
 
 
 ifeq ($(shell uname -s), Darwin)
@@ -40,14 +42,14 @@ test: $(TARGET)
 	@ $(RM) $(FOLDER)/map.dump
 	@ $(RM) $(FOLDER)/f_*.dump
 	@ $(RM) $(FOLDER)/lbmcl.*.vti
-	@ ./lbmcl -P$(PLATFORM) -D$(DEVICE) -d$(DIM) -n$(VISCOSITY) -u$(VELOCITY) -i$(ITERATIONS) -e$(EVERY) -o -v $(FOLDER)
+	@ ./lbmcl -P$(PLATFORM) -D$(DEVICE) -d$(DIM) -n$(VISCOSITY) -u$(VELOCITY) -i$(ITERATIONS) -e$(EVERY) -w$(LWS) -s$(STRIDE) -o -v $(FOLDER)
 
 
 testall: $(TARGET)
 	@ $(RM) $(FOLDER)/map.dump
 	@ $(RM) $(FOLDER)/f_*.dump
 	@ $(RM) $(FOLDER)/lbmcl.*.vti
-	@ ./lbmcl -P$(PLATFORM) -D$(DEVICE) -d$(DIM) -n$(VISCOSITY) -u$(VELOCITY) -i$(ITERATIONS) -e$(EVERY) -o -v $(FOLDER) -p $(FOLDER) -f -m
+	@ ./lbmcl -P$(PLATFORM) -D$(DEVICE) -d$(DIM) -n$(VISCOSITY) -u$(VELOCITY) -i$(ITERATIONS) -e$(EVERY) -w$(LWS) -s$(STRIDE) -o -v $(FOLDER) -p $(FOLDER) -f -m
 
 clean:
 	$(RM) $(TARGET) *.o *~ $(FOLDER)/*.dump $(FOLDER)/*.vti

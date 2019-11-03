@@ -21,17 +21,16 @@ static void dump_map(const cl::CommandQueue & queue,
     try {
         int * map_val = new int[opts.map_dim()];
         cl::Event read_evt;
-        CLUCheckError(
+        CLUCheckErrorExit(
             queue.enqueueReadBuffer(map, CL_TRUE, 0, opts.map_size(), map_val, nullptr, &read_evt),
-            "dump_map",
-            true
+            "dump_map"
         );
         events.emplace_back(read_evt, "dump_map");
 
         store_map(opts.dump_path, map_val, opts.dim);
         delete [] map_val;
     } catch (cl::Error err) {
-        CLUErrorPrint(err, true);
+        CLUErrorPrintExit(err);
     }
 }
 
@@ -43,16 +42,15 @@ static void dump_f(const cl::CommandQueue & queue,
 {
     try {
         cl::Event read_evt;
-        CLUCheckError(
+        CLUCheckErrorExit(
             queue.enqueueReadBuffer(f, CL_TRUE, 0, opts.f_size(), f_val, nullptr, &read_evt),
-            "dump_f",
-            true
+            "dump_f"
         );
         events.emplace_back(read_evt, "dump_f");
     } catch (cl::Error err) {
-        CLUErrorPrint(err, true);
+        CLUErrorPrintExit(err);
     }
-    store_f(opts.dump_path, f_val, opts.dim, iteration, iterations);
+    store_f(opts.dump_path, f_val, opts.dim, opts.stride, iteration, iterations);
 }
 
 static void dump_data(const cl::CommandQueue & queue,
@@ -66,22 +64,20 @@ static void dump_data(const cl::CommandQueue & queue,
     cl::Event read_u_evt;
 
     try {
-        CLUCheckError(
+        CLUCheckErrorExit(
             queue.enqueueReadBuffer(rho, CL_TRUE, 0, opts.rho_size(), rho_val, nullptr, &read_rho_evt),
-            "readRho",
-            true
+            "readRho"
         );
         events.emplace_back(read_rho_evt, "readRho");
 
 
-        CLUCheckError(
+        CLUCheckErrorExit(
             queue.enqueueReadBuffer(u, CL_TRUE, 0, opts.u_size(), u_val, nullptr, &read_u_evt),
-            "readU",
-            true
+            "readU"
         );
         events.emplace_back(read_u_evt, "readU");
     } catch (cl::Error err) {
-        CLUErrorPrint(err, true);
+        CLUErrorPrintExit(err);
     }
     store_vtk(opts.vtk_path, rho_val, u_val, opts.dim, iteration, opts.iterations);
 }
@@ -90,20 +86,19 @@ static void dump_data(const cl::CommandQueue & queue,
 static void processData(const cl::CommandQueue & queue,
                         const cl::Kernel & collideAndStream)
 {
-    cl::NDRange lws = cl::NDRange(opts.dim, 1, 1);
+    cl::NDRange lws = cl::NDRange(opts.lws, 1, 1);
     cl::NDRange gws = cl::NDRange(opts.dim, opts.dim, opts.dim);
     try {
         cl::Event collideAndStream_evt;
 
-        CLUCheckError(
+        CLUCheckErrorExit(
             queue.enqueueNDRangeKernel(collideAndStream, cl::NullRange, gws, lws, nullptr, &collideAndStream_evt),
-            "collideAndStream",
-            true
+            "collideAndStream"
         );
         events.emplace_back(collideAndStream_evt, "collideAndStream");
 
     } catch (cl::Error err) {
-        CLUErrorPrint(err, true);
+        CLUErrorPrintExit(err);
     }
 }
 
@@ -146,6 +141,7 @@ int main(int argc, char * argv[])
     optionsBuilder << "-DDIM=" << opts.dim << " ";
     optionsBuilder << "-DVISCOSITY=" << opts.viscosity << " ";
     optionsBuilder << "-DVELOCITY=" << opts.velocity << " ";
+    optionsBuilder << "-DSTRIDE=" << opts.stride << " ";
 #ifdef FP_DOUBLE
     optionsBuilder << "-DFP_DOUBLE ";
 #else
@@ -166,19 +162,19 @@ int main(int argc, char * argv[])
     cl_int err;
 
     cl::Buffer f_stream = cl::Buffer(context, (opts.dump_f ? CL_MEM_READ_WRITE : CL_MEM_HOST_NO_ACCESS), opts.f_size(), nullptr, &err);
-    CLUCheckError(err, "cl::Buffer(f_stream)", true);
+    CLUCheckErrorExit(err, "cl::Buffer(f_stream)");
 
     cl::Buffer f_collide = cl::Buffer(context, (opts.dump_f ? CL_MEM_READ_WRITE : CL_MEM_HOST_NO_ACCESS), opts.f_size(), nullptr, &err);
-    CLUCheckError(err, "cl::Buffer(f_collide))", true);
+    CLUCheckErrorExit(err, "cl::Buffer(f_collide))");
 
     cl::Buffer rho = cl::Buffer(context, CL_MEM_READ_WRITE, opts.rho_size(), nullptr, &err);
-    CLUCheckError(err, "cl::Buffer(rho)", true);
+    CLUCheckErrorExit(err, "cl::Buffer(rho)");
 
     cl::Buffer u = cl::Buffer(context, CL_MEM_READ_WRITE, opts.u_size(), nullptr, &err);
-    CLUCheckError(err, "cl::Buffer(u)", true);
+    CLUCheckErrorExit(err, "cl::Buffer(u)");
 
     cl::Buffer map = cl::Buffer(context, (opts.dump_map ? CL_MEM_READ_WRITE : CL_MEM_HOST_NO_ACCESS), opts.map_size(), nullptr, &err);
-    CLUCheckError(err, "cl::Buffer(map)", true);
+    CLUCheckErrorExit(err, "cl::Buffer(map)");
 
 
     try {
@@ -204,11 +200,11 @@ int main(int argc, char * argv[])
 
         // initialize
         cl::Event init_evt;
+        cl::NDRange lws = cl::NDRange(opts.lws, 1, 1);
         cl::NDRange gws = cl::NDRange(opts.dim, opts.dim, opts.dim);
-        CLUCheckError(
-            queue.enqueueNDRangeKernel(initialize, cl::NullRange, gws, cl::NullRange, nullptr, &init_evt),
-            "initialize",
-            true
+        CLUCheckErrorExit(
+            queue.enqueueNDRangeKernel(initialize, cl::NullRange, gws, lws, nullptr, &init_evt),
+            "initialize"
         );
         events.emplace_back(init_evt, "initialize");
 
@@ -216,7 +212,7 @@ int main(int argc, char * argv[])
         if (opts.store_vtk) dump_data(queue, rho, u, rho_val, u_val, iteration);
 
     } catch (cl::Error err) {
-        CLUErrorPrint(err, true);
+        CLUErrorPrintExit(err);
     }
 
 

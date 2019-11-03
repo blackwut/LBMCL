@@ -80,26 +80,36 @@ static inline const char * cl_get_error_string(cl_int err) {
     }
 }
 
-static inline void CLUErrorPrint(const cl::Error & err,
-                                 bool mustExit = false)
+#define CLUErrorPrint(err) _CLUErrorPrint(err, false, __FILE__, __LINE__)
+#define CLUErrorPrintExit(err) _CLUErrorPrint(err, true, __FILE__, __LINE__)
+
+static inline void _CLUErrorPrint(const cl::Error & err,
+                                  bool mustExit,
+                                  const char * file,
+                                  int line)
 {
     const cl_int errCode = err.err();
     const char * what = err.what();
     const char * errString = cl_get_error_string(errCode);
-    std::cerr << what << "(" << errCode << ") - " << errString << std::endl;
+    std::cerr << file << ":" << line << " " << what << "(" << errCode << ") - " << errString << std::endl;
 
     if (mustExit) {
         exit(errCode);
     }
 }
 
-static inline void CLUCheckError(const cl_int err,
-                                 const std::string & what,
-                                 bool mustExit = false)
+#define CLUCheckError(err, what) _CLUCheckError(err, what, false, __FILE__, __LINE__)
+#define CLUCheckErrorExit(err, what) _CLUCheckError(err, what, true, __FILE__, __LINE__)
+
+static inline void _CLUCheckError(const cl_int err,
+                                  const std::string & what,
+                                  bool mustExit,
+                                  const char * file,
+                                  int line)
 {
     if (err != CL_SUCCESS) {
         const char * errString = cl_get_error_string(err);
-        std::cerr << what << "(" << err << ") - " << errString << std::endl;
+        std::cerr << file << ":" << line << " " << what << "(" << err << ") - " << errString << std::endl;
         if (mustExit) {
             exit(err);
         }

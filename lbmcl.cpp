@@ -106,7 +106,6 @@ static void processData(const cl::CommandQueue & queue,
 int main(int argc, char * argv[])
 {
     // ARGS
-    size_t iteration = 0;
     opts.process_args(argc, argv);
     opts.print_values();
 
@@ -123,7 +122,7 @@ int main(int argc, char * argv[])
         f_val = new real_t[opts.f_dim()];
     }
 
-    // OpenCL initialize
+    // OpenCL initialization
     cl::Platform platform;
     cl::Device device;
     cl::Context context;
@@ -208,24 +207,23 @@ int main(int argc, char * argv[])
         );
         events.emplace_back(init_evt, "initialize");
 
-        if (opts.dump_map)  dump_map(queue, map);
-        if (opts.store_vtk) dump_data(queue, rho, u, rho_val, u_val, iteration);
-
     } catch (cl::Error err) {
         CLUErrorPrintExit(err);
     }
 
 
-    while (iteration <= opts.iterations) {
+    if (opts.dump_map)  dump_map(queue, map);
+    if (opts.store_vtk) dump_data(queue, rho, u, rho_val, u_val, 0);
+    if (opts.dump_f) dump_f(queue, f_collide, f_val, 0, opts.iterations);
 
-        int is_swap = (iteration & 1);
+    for (size_t iteration = 1; iteration <= opts.iterations; ++iteration) {
+        const bool is_swap = (iteration % 2 == 0);
+
+        processData(queue, (is_swap ? collideAndStream_swap : collideAndStream));
 
         if (opts.dump_f) {
             dump_f(queue, (is_swap ? f_stream : f_collide), f_val, iteration, opts.iterations);
         }
-
-        processData(queue, (is_swap ? collideAndStream_swap : collideAndStream));
-        iteration++;
 
         if (opts.store_vtk && (iteration != 0) && (iteration % opts.every == 0)) {
             dump_data(queue, rho, u, rho_val, u_val, iteration);

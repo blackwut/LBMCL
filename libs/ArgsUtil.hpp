@@ -45,7 +45,7 @@ struct lbm_options {
     {}
 
 
-    size_t f_dim()   const { return (dim * dim * dim * Q_DIM); }
+    size_t f_dim()   const { return (dim * dim * dim * Q); }
     size_t u_dim()   const { return (dim * dim * dim * D); }
     size_t rho_dim() const { return (dim * dim * dim); }
     size_t map_dim() const { return (dim * dim * dim); }

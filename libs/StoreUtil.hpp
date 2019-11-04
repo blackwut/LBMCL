@@ -91,7 +91,7 @@ static void store_f(const std::string & dump_path,
                 const size_t index = IDxyzDIM(x, y, z, dim);
                 dump << std::setw(dim_digits) << "(" << x << "," << y << "," << z << ") ";
                 for (size_t q = 0; q < Q; ++q) {
-                    dump << std::fixed << std::setw(DUMP_PRECISION + 2) << std::setprecision(DUMP_PRECISION) << f[IDxyzqDIM(index, q, Q_DIM, stride)] << " ";
+                    dump << std::fixed << std::setw(DUMP_PRECISION + 2) << std::setprecision(DUMP_PRECISION) << f[IDxyzqDIM(index, q, Q, stride)] << " ";
                 }
                 dump << std::endl;
             }

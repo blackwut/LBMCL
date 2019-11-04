@@ -8,29 +8,28 @@ typedef double real_t;
 typedef float real_t;
 #endif
 
-#define D                       3
-#define Q                       19
-#define Q_DIM                   19
+#define D                               3
+#define Q                               19
 
 #define IDxyzqDIM(id, q, dim, stride)   (((id) / (stride)) * (dim) + q) * (stride) + ((id) & ((stride) - 1))
-#define IDxyzDIM(x, y, z, dim)  ((x) + ((y) * (dim)) + ((z) * (dim) * (dim)))
-#define IDux(id)                ((id) * D + 0)
-#define IDuy(id)                ((id) * D + 1)
-#define IDuz(id)                ((id) * D + 2)
+#define IDxyzDIM(x, y, z, dim)          ((x) + ((y) * (dim)) + ((z) * (dim) * (dim)))
+#define IDux(id)                        ((id) * D + 0)
+#define IDuy(id)                        ((id) * D + 1)
+#define IDuz(id)                        ((id) * D + 2)
 
 
-#define NONE                    (0)
-#define FLUID                   (1 << 0)
-#define MOVING                  (1 << 1)
-#define CORNER                  (1 << 2)
-#define WALL                    (1 << 3)
-
-#define LEFT                    (1 << 4)
-#define RIGHT                   (1 << 5)
-#define TOP                     (1 << 6)
-#define BOTTOM                  (1 << 7)
-#define FRONT                   (1 << 8)
-#define BACK                    (1 << 9)
+#define NONE                            (0)
+#define FLUID                           (1 << 0)
+#define MOVING                          (1 << 1)
+#define CORNER                          (1 << 2)
+#define WALL                            (1 << 3)
+        
+#define LEFT                            (1 << 4)
+#define RIGHT                           (1 << 5)
+#define TOP                             (1 << 6)
+#define BOTTOM                          (1 << 7)
+#define FRONT                           (1 << 8)
+#define BACK                            (1 << 9)
 
 // TODO: handle the value of moving boundary from host
 #define MOVING_BOUNDARY         FRONT

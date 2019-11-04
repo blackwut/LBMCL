@@ -529,12 +529,12 @@ void collideAndStream(__global const real_t * restrict f_collide,
     if (is_corner(cell_type)) {
         propagation_only = true;
     }
-
-    __local real_t  _f1[Q_DIM];
-    __local real_t  _f7[Q_DIM];
-    __local real_t _f10[Q_DIM];
-    __local real_t _f11[Q_DIM];
-    __local real_t _f15[Q_DIM];
+    //TODO: find the optimal value of elements in local memory for each f
+    __local real_t  _f1[32];
+    __local real_t  _f7[32];
+    __local real_t _f10[32];
+    __local real_t _f11[32];
+    __local real_t _f15[32];
 #define  _f3  _f1
 #define  _f8 _f10
 #define  _f9  _f7

@@ -16,9 +16,9 @@ static size_t number_of_digits(const size_t val)
 }
 
 
-static void store_map(const std::string & dump_path,
-                      const int * map,
-                      const size_t dim)
+static void storeMap(const std::string & dump_path,
+                     const int * map,
+                     const size_t dim)
 {
     std::stringstream filenameBuilder;
     filenameBuilder << dump_path << "/map.dump";
@@ -56,12 +56,12 @@ static void store_map(const std::string & dump_path,
 }
 
 
-static void store_f(const std::string & dump_path,
-                    const real_t * f,
-                    const size_t dim,
-                    const size_t stride,
-                    const size_t iteration,
-                    const size_t iterations)
+static void storeF(const std::string & dump_path,
+                   const real_t * f,
+                   const size_t dim,
+                   const size_t stride,
+                   const size_t iteration,
+                   const size_t iterations)
 {
 
     const size_t it_digits = number_of_digits(iterations);
@@ -105,12 +105,12 @@ static void store_f(const std::string & dump_path,
 }
 
 
-static void store_vtk(const std::string & vtk_path,
-                      const real_t * rho_val,
-                      const real_t * u_val,
-                      const size_t dim,
-                      const size_t iteration,
-                      const size_t iterations)
+static void storeVtk(const std::string & vtk_path,
+                     const real_t * rho_val,
+                     const real_t * u_val,
+                     const size_t dim,
+                     const size_t iteration,
+                     const size_t iterations)
 {
     const size_t it_digits = number_of_digits(iterations);
 

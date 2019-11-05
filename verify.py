@@ -4,54 +4,57 @@ import argparse
 from sklearn.metrics import mean_squared_error
 
 
-description = 'Calculate MSE and MAX ERROR of rho and u from two VTI files.'
+description = ('Calculate the Mean Squared Error (MSE) and '
+               'the Max Absolute Error (MAE) '
+               'of density (rho) and velocity (u) '
+               'from two LBM simulation datasets (target and prediction).')
+
 parser = argparse.ArgumentParser(description=description)
 parser.add_argument('-i', '--iterations', type=int, required=True,
-                    help='number of iterations of VTI collection')
+                    help='number of iterations in VTI dataset')
 parser.add_argument('-e', '--every', type=int, required=True,
-                    help='step number of iterations')
-parser.add_argument('-t', '--path_true', type=str, required=True,
-                    help='path containing VTI files of true values (file format ldc.0.****.vti)')
-parser.add_argument('-n', '--path_new', type=str, required=True,
-                    help='path containing VTI files of new values (file format lbmcl.****.vti)')
+                    help='step number between two iterations')
+parser.add_argument('-t', '--target_path', type=str, required=True,
+                    help='path of target VTI files (format ldc.0.*.vti)')
+parser.add_argument('-p', '--prediction_path', type=str, required=True,
+                    help='path of prediction VTI files (format lbmcl.*.vti)')
 
 
 args = parser.parse_args()
-# s -> sailfish
-# a -> lbmcl
 iterations = args.iterations
 every = args.every
-base_s = args.path_true
-base_a = args.path_new
+target_path = args.target_path
+prediction_path = args.prediction_path
 
 fill = '0'
-width = int(numpy.log10(iterations)) + 1
+width = int(numpy.log10(iterations)) + 1 if iterations > 0 else 1
 
 print('{0:^{w}}  {1:^13}  {2:^13}  {3:^13}  {4:^13}'
-      .format('#it', 'MSE_RHO', 'MSE_U', 'MAX_ERR_RHO', 'MAX_ERR_U', w=width))
+      .format('#it', 'MSE_RHO', 'MSE_U', 'MAE_RHO', 'MAE_U', w=width))
 
 for i in range(0, iterations + 1, every):
-    name_s = '{path_true}/ldc.0.{num:{f}{w}}.vti'.format(path_true=base_s,
-                                                         num=i,
-                                                         f=fill,
-                                                         w=width)
-    name_a = '{path_new}/lbmcl.{num:{f}{w}}.vti'.format(path_new=base_a,
-                                                        num=i,
+    target_name = '{p}/ldc.0.{i:{f}{w}}.vti'.format(p=target_path,
+                                                    i=i,
+                                                    f=fill,
+                                                    w=width)
+    prediction_name = '{p}/lbmcl.{i:{f}{w}}.vti'.format(p=prediction_path,
+                                                        i=i,
                                                         f=fill,
                                                         w=width)
-    s = pyvista.read(name_s)
-    a = pyvista.read(name_a)
+    target_data = pyvista.read(target_name)
+    prediction_data = pyvista.read(prediction_name)
 
-    rho_s = numpy.nan_to_num(s.point_arrays['rho'])
-    rho_a = numpy.nan_to_num(a.point_arrays['rho'])
-    u_s = numpy.nan_to_num(s.point_arrays['v'])
-    u_a = numpy.nan_to_num(a.point_arrays['v'])
+    target_rho = numpy.nan_to_num(target_data.point_arrays['rho'])
+    prediction_rho = numpy.nan_to_num(prediction_data.point_arrays['rho'])
+    target_v = numpy.nan_to_num(target_data.point_arrays['v'])
+    prediction_v = numpy.nan_to_num(prediction_data.point_arrays['v'])
 
-    rho_mse = mean_squared_error(rho_s, rho_a)
-    u_mse = mean_squared_error(u_s, u_a)
+    mse_rho = mean_squared_error(target_rho, prediction_rho)
+    mse_v = mean_squared_error(target_v, prediction_v)
 
-    rho_max_err = numpy.max(numpy.abs(rho_s - rho_a))
-    u_max_err = numpy.max(numpy.abs(u_s - u_a))
-    print('{num:{f}{w}}:  {rho_mse:e}   {u_mse:e}   {rho_max:e}   {u_max:e}'
-          .format(num=i, rho_mse=rho_mse, u_mse=u_mse, rho_max=rho_max_err,
-                  u_max=u_max_err, f='', w=width))
+    mae_rho = numpy.max(numpy.abs(target_rho - prediction_rho))
+    mae_v = numpy.max(numpy.abs(target_v - prediction_v))
+    print('{i:{f}{w}}:  {mse_rho:e}   {mse_v:e}   {rho_max:e}   {u_max:e}'
+          .format(i=i, mse_rho=mse_rho, mse_v=mse_v,
+                  rho_max=mae_rho, u_max=mae_v,
+                  f='', w=width))

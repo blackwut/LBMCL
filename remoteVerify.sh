@@ -113,4 +113,4 @@ $SCP_SAILFISH
 
 
 # Verify results
-python3 verify.py -i "$ITERATIONS" -e "$EVERY" -t "$HOST_FOLDER_SAILFISH" -n "$HOST_FOLDER_LBMCL"
+python3 verify.py -i "$ITERATIONS" -e "$EVERY" -t "$HOST_FOLDER_SAILFISH" -p "$HOST_FOLDER_LBMCL"

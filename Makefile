@@ -15,11 +15,11 @@ FOLDER		= ./results
 SAILFISH_RES= ./sailfish_results
 
 # User defined options in shell environment using "export" command
-DIM			?= 32
+DIM			?= 8
 PRECISION	?= SINGLE # SINGLE or DOUBLE
-ITERATIONS	?= 500
-EVERY		?= 20
-LWS			?= 32
+ITERATIONS	?= 10
+EVERY		?= 1
+LWS			?= 8
 STRIDE		?= 8
 
 
@@ -42,14 +42,22 @@ test: $(TARGET)
 	@ $(RM) $(FOLDER)/map.dump
 	@ $(RM) $(FOLDER)/f_*.dump
 	@ $(RM) $(FOLDER)/lbmcl.*.vti
-	@ ./lbmcl -P$(PLATFORM) -D$(DEVICE) -d$(DIM) -n$(VISCOSITY) -u$(VELOCITY) -i$(ITERATIONS) -e$(EVERY) -w$(LWS) -s$(STRIDE) -o -v $(FOLDER)
+	@ ./lbmcl -P$(PLATFORM) -D$(DEVICE) -d$(DIM) -n$(VISCOSITY) -u$(VELOCITY) -i$(ITERATIONS) -e$(EVERY) -w$(LWS) -s$(STRIDE) -o -v $(FOLDER) -p $(FOLDER) -f -m
 
-
-testall: $(TARGET)
+test8: $(TARGET)
 	@ $(RM) $(FOLDER)/map.dump
 	@ $(RM) $(FOLDER)/f_*.dump
 	@ $(RM) $(FOLDER)/lbmcl.*.vti
-	@ ./lbmcl -P$(PLATFORM) -D$(DEVICE) -d$(DIM) -n$(VISCOSITY) -u$(VELOCITY) -i$(ITERATIONS) -e$(EVERY) -w$(LWS) -s$(STRIDE) -o -v $(FOLDER) -p $(FOLDER) -f -m
+	@ ./lbmcl -P$(PLATFORM) -D$(DEVICE) -d 8 -n 0.0089 -u 0.05 -i 10 -e 1 -w 32 -s 8 -o -v $(FOLDER)
+	@ python3 verify.py -i 10 -e 1 -t $(SAILFISH_RES)/8 -p $(FOLDER)
+
+test32: $(TARGET)
+	@ $(RM) $(FOLDER)/map.dump
+	@ $(RM) $(FOLDER)/f_*.dump
+	@ $(RM) $(FOLDER)/lbmcl.*.vti
+	@ ./lbmcl -P$(PLATFORM) -D$(DEVICE) -d 32 -n 0.0089 -u 0.05 -i 500 -e 20 -w 32 -s 32 -o -v $(FOLDER)
+	@ python3 verify.py -i500 -e20 -t $(SAILFISH_RES)/32 -p $(FOLDER)
+
 
 clean:
 	$(RM) $(TARGET) *.o *~ $(FOLDER)/*.dump $(FOLDER)/*.vti

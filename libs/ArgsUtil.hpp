@@ -3,6 +3,7 @@
 #include <string>
 #include <iostream>
 #include <iomanip>
+#include <limits>
 #include <getopt.h>
 
 
@@ -138,7 +139,7 @@ struct lbm_options {
         };
 
         int int_opt = -1;
-        float float_opt = NAN;
+        real_t real_opt = std::numeric_limits<real_t>::quiet_NaN();
 
         while (1) {
             const int opt = getopt_long(argc, argv, short_opts, long_opts, nullptr);
@@ -168,11 +169,11 @@ struct lbm_options {
                     dim = int_opt;
                     break;
                 case 'n':
-                    if ((float_opt = std::atof(optarg)) < 0) {
+                    if ((real_opt = std::atof(optarg)) < 0) {
                         std::cerr << "Please enter a valid viscosity value" << std::endl;
                         exit(1);
                     }
-                    viscosity = float_opt;
+                    viscosity = real_opt;
                     break;
                 case 'u':
                     velocity = std::atof(optarg);

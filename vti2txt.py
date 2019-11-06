@@ -1,6 +1,6 @@
+import argparse
 import pyvista
 import numpy
-import argparse
 
 
 def print_matrix3D(f, mat, dim):

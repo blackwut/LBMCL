@@ -8,7 +8,18 @@
 
 #include "common.h"
 #include "CLUtil.hpp"
-#include "StoreUtil.hpp"
+
+
+#define DIGITS(val)         (((val) > 0) ? (size_t)log10((double)(val)) + 1 : 1)
+
+#define DUMP_PRECISION      6
+#define VTK_PRECISION       16
+
+#if FP_FLOAT
+#define VTK_DATA_TYPE   "Float32"
+#else
+#define VTK_DATA_TYPE   "Float64"
+#endif
 
 
 template <typename T>
@@ -65,8 +76,9 @@ private:
 
 
 
-    void dumpMap()
+    void storeMap()
     {
+        // Read from Device
         cl::Event read_evt;
         CLUCheckErrorExit(
             queue.enqueueReadBuffer(map, CL_TRUE, 0, map_size(), map_values, nullptr, &read_evt),
@@ -74,12 +86,46 @@ private:
         );
         events.emplace_back("read_map", read_evt);
 
-        storeMap(dump_path, map_values, dim);
+        // Store to file
+        std::stringstream filenameBuilder;
+        filenameBuilder << dump_path << "/map.dump";
+
+        std::ofstream dump;
+        dump.open(filenameBuilder.str());
+
+        dump << "# FLUID       1" << std::endl
+             << "# MOVING      2" << std::endl
+             << "# BOUNDARY    3" << std::endl
+             << "# WALL        4" << std::endl
+             << "# CORNER      5" << std::endl
+             << std::endl;
+
+        for (size_t z = 0; z < dim; ++z) {
+            for (size_t y = 0; y < dim; ++y) {
+                for (size_t x = 0; x < dim; ++x) {
+                    const size_t cell_type = map_values[IDxyzDIM(x, y, z, dim)];
+
+                    int val = 0;
+                    if (is_fluid(cell_type))    val = 1;
+                    if (is_moving(cell_type))   val = 2;
+                    if (is_boundary(cell_type)) val = 3;
+                    if (is_wall(cell_type))     val = 4;
+                    if (is_corner(cell_type))   val = 5;
+                    dump << val << " ";
+                }
+                dump << std::endl;
+            }
+            dump << std::endl;
+        }
+        dump << std::endl;
+
+        dump.close();
     }
 
 
-    void dumpF(const cl::Buffer & f, size_t iteration)
+    void storeF(const cl::Buffer & f, size_t iteration)
     {
+        // Read from Device
         cl::Event read_evt;
         CLUCheckErrorExit(
             queue.enqueueReadBuffer(f, CL_TRUE, 0, f_size(), f_values, nullptr, &read_evt),
@@ -87,12 +133,54 @@ private:
         );
         events.emplace_back("read_f", read_evt);
 
-        storeF(dump_path, f_values, dim, stride, iteration, iterations);
+
+        // Store to file
+        std::stringstream filenameBuilder;
+        filenameBuilder << dump_path << "/f_" << std::setw(DIGITS(iterations)) << std::setfill('0') << iteration << ".dump";
+
+        // (xxx,yyy,zzz) 
+        // 1 + D + 1 + D + 1 + D + 1 + 1
+        const size_t dim_digits = DIGITS(dim);
+        const size_t coord_spaces = dim_digits * 3 + 5;
+
+        std::ofstream dump;
+        dump.open(filenameBuilder.str());
+
+        for (size_t z = 0; z < dim; ++z) {
+            for (size_t y = 0; y < dim; ++y) {
+                for (size_t s = 0; s < coord_spaces; ++s) {
+                    dump << " ";
+                }
+                for (size_t q = 0; q < Q; ++q) {
+                    dump << std::setw(DUMP_PRECISION + 2) << q << " ";
+                }
+                dump << std::endl;
+
+                for (size_t x = 0; x < dim; ++x) {
+                    const size_t index = IDxyzDIM(x, y, z, dim);
+                    dump << std::setw(dim_digits) << "(" << x << "," << y << "," << z << ") ";
+                    for (size_t q = 0; q < Q; ++q) {
+                        dump << std::fixed 
+                             << std::setw(DUMP_PRECISION + 2)
+                             << std::setprecision(DUMP_PRECISION)
+                             << f_values[IDxyzqDIM(index, q, Q, stride)]
+                             << " ";
+                    }
+                    dump << std::endl;
+                }
+                dump << std::endl;
+            }
+            dump << std::endl;
+        }
+        dump << std::endl;
+
+        dump.close();
     }
 
 
-    void dumpData(size_t iteration)
+    void storeData(size_t iteration)
     {
+        // Read from Device
         cl::Event read_rho_evt;
         cl::Event read_u_evt;
     
@@ -108,7 +196,60 @@ private:
         );
         events.emplace_back("read_u", read_u_evt);
 
-        storeVtk(vtk_path, rho_values, u_values, dim, iteration, iterations);
+
+        // Store to file
+        std::stringstream filenameBuilder;
+        filenameBuilder << vtk_path << "/lbmcl." << std::setw(DIGITS(iterations)) << std::setfill('0') << iteration << ".vti";
+
+        const size_t from = 1;
+        const size_t to = dim - 1;
+        const size_t extent = to - from - 1;
+
+        std::ofstream vtk;
+        vtk.open(filenameBuilder.str());
+
+        vtk << "<?xml version=\"1.0\"?>\n" 
+            << "<VTKFile type=\"ImageData\" version=\"0.1\" byte_order=\"LittleEndian\" header_type=\"UInt64\">\n" 
+            << "  <ImageData WholeExtent=\"0 " << extent << " 0 " << extent << " 0 " << extent << "\" Origin=\"0 0 0\" Spacing=\"1 1 1\">\n"
+            << "    <Piece Extent=\"0 " << extent << " 0 " << extent << " 0 " << extent << "\">\n"
+            << "      <PointData Scalars=\"rho\">\n"
+            << "        <DataArray type=\"" << VTK_DATA_TYPE << "\" Name=\"rho\" NumberOfComponents=\"1\" format=\"ascii\">\n";
+
+        for (size_t z = from; z < to; ++z) {
+            for (size_t y = from; y < to; ++y) {
+                for (size_t x = from; x < to; ++x) {
+                    const real_t val = rho_values[IDxyzDIM(x, y, z, dim)];
+                    vtk << std::scientific << std::setprecision(VTK_PRECISION) << val << " ";
+                }
+                vtk << "\n";
+            }
+        }
+
+        vtk << "        </DataArray>\n"
+            << "        <DataArray type=\"" << VTK_DATA_TYPE << "\" Name=\"v\" NumberOfComponents=\"3\" format=\"ascii\">\n";
+
+        for (size_t z = from; z < (to); ++z) {
+            for (size_t y = from; y < (to); ++y) {
+                for (size_t x = from; x < (to); ++x) {
+                    const size_t id = IDxyzDIM(x, y, z, dim);
+                    const real_t val_x = u_values[IDux(id)];
+                    const real_t val_y = u_values[IDuy(id)];
+                    const real_t val_z = u_values[IDuz(id)];
+                    vtk << std::scientific << std::setprecision(VTK_PRECISION) << val_x << " "
+                        << std::scientific << std::setprecision(VTK_PRECISION) << val_y << " "
+                        << std::scientific << std::setprecision(VTK_PRECISION) << val_z << " ";
+                }
+                vtk << "\n";
+            }
+        }
+
+        vtk << "        </DataArray>\n"
+            << "      </PointData>\n"
+            << "    </Piece>\n"
+            << "  </ImageData>\n"
+            << "</VTKFile>\n";
+
+        vtk.close();
     }
 
 
@@ -267,9 +408,9 @@ public:
     // the completion of the simulation.
     void performSimulation()
     {
-        dumpData(0);
-        if (dump_map)  dumpMap();
-        if (dump_f)    dumpF(f_collide, 0);
+        storeData(0);
+        if (dump_map)  storeMap();
+        if (dump_f)    storeF(f_collide, 0);
 
         for (size_t iteration = 1; iteration <= iterations; ++iteration) {
             const bool is_swap = (iteration % 2 == 0);
@@ -277,11 +418,11 @@ public:
             processData((is_swap ? compute_swap : compute));
 
             if (dump_f) {
-                dumpF((is_swap ? f_stream : f_collide), iteration);
+                storeF((is_swap ? f_stream : f_collide), iteration);
             }
 
             if ((iteration != 0) && (iteration % every == 0)) {
-                dumpData(iteration);
+                storeData(iteration);
             }
         }
     }

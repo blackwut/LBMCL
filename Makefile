@@ -38,7 +38,7 @@ $(TARGET): main.cpp
 	$(CXX)  -o $@ $^ $(LDLIBS) $(CXXFLAGS) $(INCLUDES) -DFP_$(PRECISION)
 
 
-testall: $(TARGET)
+test: $(TARGET)
 	@ $(RM) $(RESULTS)/map.dump
 	@ $(RM) $(RESULTS)/f_*.dump
 	@ $(RM) $(RESULTS)/lbmcl.*.vti

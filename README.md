@@ -14,7 +14,7 @@ pip3 install virtualenv
 
 # Create an environment
 cd /PATH_TO_LBMCL/LBMCL
-virtualenv ./project
+virtualenv -p python3 ./project
 
 # Activate the environment
 source ./project/bin/activate
@@ -42,8 +42,11 @@ The makefile provides some targets to compile and test the simulation:
 # Compile
 make
 
-# Run a simple simulation testing all the option flags
+# Run a simple testing simulation
 make test
+
+# Run a simple simulation testing all the option flags
+make testall
 
 # Run 10 iterations of a 8x8x8 simulation with 0.0089 viscosity and 0.05 velocity, then verify data
 make test8

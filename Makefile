@@ -38,7 +38,13 @@ $(TARGET): main.cpp
 	$(CXX)  -o $@ $^ $(LDLIBS) $(CXXFLAGS) $(INCLUDES) -DFP_$(PRECISION)
 
 
-test: $(TARGET)
+testall: $(TARGET)
+	@ $(RM) $(RESULTS)/map.dump
+	@ $(RM) $(RESULTS)/f_*.dump
+	@ $(RM) $(RESULTS)/lbmcl.*.vti
+	@ ./lbmcl -P$(PLATFORM) -D$(DEVICE) -d$(DIM) -n$(VISCOSITY) -u$(VELOCITY) -i$(ITERATIONS) -e$(EVERY) -w$(LWS) -s$(STRIDE) -o -v $(RESULTS)
+
+testall: $(TARGET)
 	@ $(RM) $(RESULTS)/map.dump
 	@ $(RM) $(RESULTS)/f_*.dump
 	@ $(RM) $(RESULTS)/lbmcl.*.vti

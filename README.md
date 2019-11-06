@@ -30,11 +30,11 @@ deactivate
 There are some user defined parameters that can be modified:
 ```bash
 DIM        ?= 8      # dimension of the cube
-PRECISION	 ?= SINGLE # floating point precision: SINGLE or DOUBLE
+PRECISION  ?= SINGLE # floating point precision: SINGLE or DOUBLE
 ITERATIONS ?= 10     # number of iterations
-EVERY		   ?= 1      # number of iterations to skip between to output
-LWS			   ?= 8      # work group size to use for kernel execution
-STRIDE		 ?= 8      # stride used in the CSoA memory layout
+EVERY      ?= 1      # number of iterations to skip between to output
+LWS        ?= 8      # work group size to use for kernel execution
+STRIDE     ?= 8      # stride used in the CSoA memory layout
 ```
 
 The makefile provides some targets to compile and test the simulation:

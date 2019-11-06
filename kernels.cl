@@ -4,6 +4,7 @@
 //
 // FP_SINGLE or FP_DOUBLE to set the simulation with float or double type
 // DIM                    the cube dimension of the simulation
+// STRIDE                 stride value used to calculate index of CSoA data layout
 // VELOCITY               the moving wall velocity
 // VISCOSITY              the fluid viscosity
 
@@ -307,11 +308,11 @@ void initialize(__global real_t * restrict f_stream,
 
 
 __kernel
-void collideAndStream(__global const real_t * restrict f_collide,
-                      __global real_t * restrict density,
-                      __global real_t * restrict u,
-                      __global const int * restrict map,
-                      __global real_t * restrict f_stream)
+void compute(__global const real_t * restrict f_collide,
+             __global real_t * restrict density,
+             __global real_t * restrict u,
+             __global const int * restrict map,
+             __global real_t * restrict f_stream)
 {
     const int x = get_global_id(0);
     const int y = get_global_id(1);

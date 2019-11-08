@@ -1,6 +1,6 @@
 # Compilation options
 CXX			= g++
-CXXFLAGS	= -std=c++11 -Wall -Wextra -Wpedantic -pedantic -O0 -g
+CXXFLAGS	= -std=c++11 -Wall -Wextra -Wpedantic -pedantic -O3
 LDLIBS		=
 INCLUDES	= -I. -I./libs
 TARGET		= lbmcl

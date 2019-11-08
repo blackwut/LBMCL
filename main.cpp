@@ -2,6 +2,7 @@
 
 #include "common.h"
 #include "ArgsUtil.hpp"
+#include "CLUtil.hpp"
 #include "lbmcl.hpp"
 
 int main(int argc, char * argv[])
@@ -24,6 +25,7 @@ int main(int argc, char * argv[])
                         opts.dump_f);
 
     lbmcl.setupDevice(opts.platformID, opts.deviceID, true);
+    lbmcl.initialize();
     lbmcl.performSimulation();
     lbmcl.waitCompletion();
 
@@ -31,6 +33,8 @@ int main(int argc, char * argv[])
     std::cout << " Kernels time: " << lbmcl.kernelsTimeMS() << " ms" << std::endl;
     std::cout << "  Total MLUPS: " << lbmcl.MLUPS() << " MLUPS" << std::endl;
     std::cout << "Kernels MLUPS: " << lbmcl.kernelsMLUPS() << " MLUPS" << std::endl;
+
+    std::cerr << lbmcl.statistics(';');
 
     return 0;
 }

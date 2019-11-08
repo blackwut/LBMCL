@@ -38,9 +38,9 @@ if [ -z "$2" ] || (("$2" < 0 || "$2" > 256)); then
 fi
 LWS="$2"
 
-if [ -z "$3" ] || (("$3" < 0 || "$3" > "$DIM")); then
+if [ -z "$3" ] || (("$3" < 0 || "$3" > 256)); then
     print_help
-    echo "STRIDE: Please enter a number in the range [0, $DIM]"
+    echo "STRIDE: Please enter a number in the range [0, 256]"
     exit -1;
 fi
 STRIDE="$3"
@@ -76,15 +76,14 @@ esac
 if [ ! -d "$HOST_FOLDER_SAILFISH" ]; then
     mkdir "$HOST_FOLDER_SAILFISH"
 else
-    rm -f "$HOST_FOLDER_SAILFISH/*.vti"
+    rm -f "$HOST_FOLDER_SAILFISH"/ldc.0.*.vti
 fi
 
 if [ ! -d "$HOST_FOLDER_LBMCL" ]; then
     mkdir "$HOST_FOLDER_LBMCL"
 else
-    rm -f "$HOST_FOLDER_LBMCL/*.vti"
+    rm -f "$HOST_FOLDER_LBMCL"/lbmcl.*.vti
 fi
-
 
 # Prepare commands
 LBMCL_COMMAND="cd $SSH_FOLDER_LBMCL; "

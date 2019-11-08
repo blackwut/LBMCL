@@ -243,11 +243,6 @@ struct lbm_options {
             std::cout << "work_group_size is set to " << dim << std::endl;
         }
 
-        if (stride > dim) {
-            stride = dim;
-            std::cout << "stride is set to " << dim << std::endl;
-        }
-
         if (!is_power_of_two(stride)) {
             stride = most_significant_bit(stride);
             std::cout << "stride is rounded to the previous power of 2 that is " << stride << std::endl;

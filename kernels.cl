@@ -2,11 +2,33 @@
 
 // The following definitions are provided at compile time
 //
-// FP_SINGLE or FP_DOUBLE to set the simulation with float or double type
-// DIM                    the cube dimension of the simulation
-// STRIDE                 stride value used to calculate index of CSoA data layout
-// VELOCITY               the moving wall velocity
-// VISCOSITY              the fluid viscosity
+// FP_SINGLE or FP_DOUBLE   to set the simulation with float or double type
+// DIM                      the cube dimension of the simulation
+// LWS                      work_group_size
+// STRIDE                   stride value used to calculate index of CSoA data layout
+// VELOCITY                 the moving wall velocity
+// VISCOSITY                the fluid viscosity
+
+#ifndef DIM
+#error DIM is not defined
+#endif
+
+#ifndef LWS
+#error LWS is not defined
+#endif
+
+#ifndef STRIDE
+#error STRIDE is not defined
+#endif
+
+#ifndef VELOCITY
+#error VELOCITY is not defined
+#endif
+
+#ifndef VISCOSITY
+#error VISCOSITY is not defined
+#endif
+
 
 #define SCRATCH_METHOD          (1 << 0)
 #define SAILFISH_METHOD         (1 << 1)
@@ -531,11 +553,11 @@ void compute(__global const real_t * restrict f_collide,
         propagation_only = true;
     }
     //TODO: find the optimal value of elements in local memory for each f
-    __local real_t  _f1[32];
-    __local real_t  _f7[32];
-    __local real_t _f10[32];
-    __local real_t _f11[32];
-    __local real_t _f15[32];
+    __local real_t  _f1[LWS];
+    __local real_t  _f7[LWS];
+    __local real_t _f10[LWS];
+    __local real_t _f11[LWS];
+    __local real_t _f15[LWS];
 #define  _f3  _f1
 #define  _f8 _f10
 #define  _f9  _f7

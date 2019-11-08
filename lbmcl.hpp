@@ -15,7 +15,7 @@
 #define DUMP_PRECISION      6
 #define VTK_PRECISION       16
 
-#if FP_FLOAT
+#if FP_SINGLE
 #define VTK_DATA_TYPE   "Float32"
 #else
 #define VTK_DATA_TYPE   "Float64"
@@ -260,7 +260,7 @@ private:
         cl::Event compute_evt;
 
         CLUCheckErrorExit(
-            queue.enqueueNDRangeKernel(compute, cl::NullRange, gws, cl::NDRange(1, 1, 1), nullptr, &compute_evt),
+            queue.enqueueNDRangeKernel(compute, cl::NullRange, gws, lws, nullptr, &compute_evt),
             "compute"
         );
         events.emplace_back("compute", compute_evt);

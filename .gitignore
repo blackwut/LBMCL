@@ -66,3 +66,6 @@ pip-selfcheck.json
 
 # Binary files
 lbmcl
+
+# Stats
+*.csv

@@ -160,10 +160,10 @@ static inline void CLUSelectDevice(cl::Device & device,
                           << std::endl
                           << "\tVendor:            " << d.getInfo<CL_DEVICE_VENDOR>()                     << std::endl
                           << "\tMax Compute Units: " << d.getInfo<CL_DEVICE_MAX_COMPUTE_UNITS>()          << std::endl
-                          << "\tGlobal Memory:     " << (d.getInfo<CL_DEVICE_GLOBAL_MEM_SIZE>() >> 20)    << " MB" << std::endl
+                          << "\tGlobal Memory:     " << (d.getInfo<CL_DEVICE_GLOBAL_MEM_SIZE>() >> 20)    << " MB"  << std::endl
                           << "\tMax Clock Freq.:   " << d.getInfo<CL_DEVICE_MAX_CLOCK_FREQUENCY>()        << " MHz" << std::endl
-                          << "\tMax Alloc. Memory: " << (d.getInfo<CL_DEVICE_MAX_MEM_ALLOC_SIZE>() >> 20) << " MB" << std::endl
-                          << "\tLocal Memory:      " << (d.getInfo<CL_DEVICE_LOCAL_MEM_SIZE>() >> 10)     << " KB" << std::endl
+                          << "\tMax Alloc. Memory: " << (d.getInfo<CL_DEVICE_MAX_MEM_ALLOC_SIZE>() >> 20) << " MB"  << std::endl
+                          << "\tLocal Memory:      " << (d.getInfo<CL_DEVICE_LOCAL_MEM_SIZE>() >> 10)     << " KB"  << std::endl
                           << "\tAvailable:         " << (d.getInfo<CL_DEVICE_AVAILABLE>() ? "YES" : "NO") << std::endl
                           << std::endl;
             }

@@ -4,7 +4,12 @@ Lattice Boltzmann Method 3D (LBM D3Q19) computing Lid Driven Cavity Problem (LDC
 ## Dependencies
 - A compiler compatible with C++11 
 - OpenCL 1.2
-- Python 3 (numpy, scipy, scikit-learn, vtk, pyvista)
+- Python 3
+  - numpy
+  - scipy
+  - scikit-learn
+  - vtk
+  - pyvista
 
 ## Python Setup
 To verify data produced, Python 3 and some packages are required. It is recommended to use a Python Virtualenv.
@@ -28,7 +33,7 @@ deactivate
 
 ## Makefile
 There are some user defined parameters that can be modified:
-```bash
+```makefile
 DIM        ?= 8      # dimension of the cube
 PRECISION  ?= SINGLE # floating point precision: SINGLE or DOUBLE
 ITERATIONS ?= 10     # number of iterations
@@ -56,7 +61,7 @@ make test32
 ```
 
 ## Usage
-```bash
+```wiki
 ./lbmcl --help
 -P  --platform            Use the specified platform                     
 -D  --device              Use the specified device                       

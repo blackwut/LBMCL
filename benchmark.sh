@@ -2,7 +2,7 @@
 
 LOG="./stats.csv"
 
-export PRECISION=SINGLE
+PRECISION=single
 PLATFORM=0
 DEVICE=2
 
@@ -53,19 +53,23 @@ for d in "${_dim[@]}"; do
     for l in "${_lws[@]}"; do
         if ((l <= d)); then
             for s in "${_stride[@]}"; do
-                for k in `seq 1 10`; do
-                    ./lbmcl -P $PLATFORM -D $DEVICE -d $d -n $VISCOSITY -u $VELOCITY -i $ITERATIONS -e $EVERY -w $l -s $s -o 2>> $LOG
+                for k in `seq 1 11`; do
+                    if [ "$PRECISION" = "single" ]; then
+                        ./lbmcl -P $PLATFORM -D $DEVICE -d $d -n $VISCOSITY -u $VELOCITY -i $ITERATIONS -e $EVERY -w $l -s $s -o 2>> $LOG
+                    else
+                        ./lbmcl -P $PLATFORM -D $DEVICE -d $d -n $VISCOSITY -u $VELOCITY -i $ITERATIONS -e $EVERY -w $l -s $s -o -F 2>> $LOG
+                    fi
                 done
             done
         fi
     done
 done
 
-DISCRIMINATOR='$8'
+DISCRIMINATOR='$9'
 
 cat $LOG | awk -F\; '{
 
-    i = $1"_"$2"_"$5"_"$6;
+    i = $1";"$2";"$3";"$6";"$7;
 
     found = 0
     for (n in names) {
@@ -75,39 +79,39 @@ cat $LOG | awk -F\; '{
     if (!found) {
         min_val[i] = '"$DISCRIMINATOR"'
         max_val[i] = '"$DISCRIMINATOR"'
-        min_total_time[i]    =  $8
-        min_kernels_time[i]  =  $9
-        min_total_mlups[i]   = $10
-        min_kernels_mlups[i] = $11
-        max_total_time[i]    =  $8
-        max_kernels_time[i]  =  $9
-        max_total_mlups[i]   = $10
-        max_kernels_mlups[i] = $11
+        min_total_time[i]    =  $9
+        min_kernels_time[i]  = $10
+        min_total_mlups[i]   = $11
+        min_kernels_mlups[i] = $12
+        max_total_time[i]    =  $9
+        max_kernels_time[i]  = $10
+        max_total_mlups[i]   = $11
+        max_kernels_mlups[i] = $12
     }
 
     count[i]+=1
     names[i]=i
-    total_time[i]  +=$8
-    kernels_time[i]+=$9
-    total_mlups[i] +=$10
-    kernel_mlups[i]+=$11
+    total_time[i]  +=$9
+    kernels_time[i]+=$10
+    total_mlups[i] +=$11
+    kernel_mlups[i]+=$12
 
     min_update = min_val[i] > '"$DISCRIMINATOR"'
     max_update = max_val[i] < '"$DISCRIMINATOR"'
 
     if (min_update) {
-        min_total_time[i]    =  $8
-        min_kernels_time[i]  =  $9
-        min_total_mlups[i]   = $10
-        min_kernels_mlups[i] = $11
+        min_total_time[i]    =  $9
+        min_kernels_time[i]  = $10
+        min_total_mlups[i]   = $11
+        min_kernels_mlups[i] = $12
         min_val[i]           = '"$DISCRIMINATOR"'
     }
 
     if (max_update) {
-        max_total_time[i]    =  $8
-        max_kernels_time[i]  =  $9
-        max_total_mlups[i]   = $10
-        max_kernels_mlups[i] = $11
+        max_total_time[i]    =  $9
+        max_kernels_time[i]  = $10
+        max_total_mlups[i]   = $11
+        max_kernels_mlups[i] = $12
         max_val[i]           = '"$DISCRIMINATOR"'
     }
 }
@@ -126,6 +130,6 @@ END {
         total_mlups[i]  -= max_total_mlups[i]
         kernel_mlups[i] -= max_kernels_mlups[i]
 
-        print i, total_time[i]/N, kernels_time[i]/N, total_mlups[i]/N, kernel_mlups[i]/N
+        print i";"total_time[i]/N";"kernels_time[i]/N";"total_mlups[i]/N";"kernel_mlups[i]/N
     }
-}'
+}' | sed -E 's/([0-9]+).([0-9]+)/\1\,\2/g'

@@ -89,13 +89,11 @@ fi
 LBMCL_COMMAND="cd $SSH_FOLDER_LBMCL; "
 LBMCL_COMMAND+="rm ./results/*.vti; "
 LBMCL_COMMAND+="make clean; "
-LBMCL_COMMAND+="export DIM=$DIM; "
-LBMCL_COMMAND+="export LWS=$LWS; "
-LBMCL_COMMAND+="export STRIDE=$STRIDE; "
-LBMCL_COMMAND+="export ITERATIONS=$ITERATIONS; "
-LBMCL_COMMAND+="export EVERY=$EVERY; "
-LBMCL_COMMAND+="export PRECISION=$(echo "$PRECISION" | tr '[:lower:]' '[:upper:]'); "
-LBMCL_COMMAND+="make test;"
+LBMCL_COMMAND+="make"
+LBMCL_COMMAND+="./lbmcl -P0 -D0 -d $DIM -n0.0089 -u0.05 -i $ITERATIONS -e $EVERY -w $LWS -s $STRIDE -o -v ./results"
+if [ "$PRECISION" = "double" ]; then
+    LBMCL_COMMAND+=" -F"
+fi
 
 SAILFISH_DIM="$(($DIM - 2))"
 SAILFISH_COMMAND="cd ~/sailfish; "

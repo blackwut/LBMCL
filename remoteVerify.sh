@@ -89,7 +89,7 @@ fi
 LBMCL_COMMAND="cd $SSH_FOLDER_LBMCL; "
 LBMCL_COMMAND+="rm ./results/*.vti; "
 LBMCL_COMMAND+="make clean; "
-LBMCL_COMMAND+="make"
+LBMCL_COMMAND+="make; "
 LBMCL_COMMAND+="./lbmcl -P0 -D0 -d $DIM -n0.0089 -u0.05 -i $ITERATIONS -e $EVERY -w $LWS -s $STRIDE -o -v ./results"
 if [ "$PRECISION" = "double" ]; then
     LBMCL_COMMAND+=" -F"

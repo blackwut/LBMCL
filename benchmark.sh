@@ -132,4 +132,4 @@ END {
 
         print i";"total_time[i]/N";"kernels_time[i]/N";"total_mlups[i]/N";"kernel_mlups[i]/N
     }
-}' | sed -E 's/([0-9]+).([0-9]+)/\1\,\2/g'
+}'

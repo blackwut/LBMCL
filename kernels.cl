@@ -584,7 +584,7 @@ void compute(__global const real_t * restrict f_collide,
         if (x < (DIM-1)) {
             // Note: propagation to ghost nodes is done directly in global memory as there
             // are no threads running for the ghost nodes.
-            if (lx < 63 && x != (DIM-2)) {
+            if (lx < (LWS-1) && x != (DIM-2)) {
                  _f1[lx + 1] =  f1;
                  _f7[lx + 1] =  f7;
                 _f10[lx + 1] = f10;
@@ -642,7 +642,7 @@ void compute(__global const real_t * restrict f_collide,
 
     barrier(CLK_LOCAL_MEM_FENCE);
     // The rightmost thread is not updated in this block.
-    if (lx < (LWS - 1) && x < (DIM-1) && !propagation_only && alive)
+    if (lx < (LWS-1) && x < (DIM-1) && !propagation_only && alive)
     {
         if (_f1[lx] != -1.0) {
                              f_stream[IDXYZQ( x,   y,   z,  3)] =  _f3[lx];             //  0  0  0

@@ -34,12 +34,20 @@ deactivate
 ## Makefile
 There are some user defined parameters that can be modified:
 ```makefile
-DIM        ?= 8      # dimension of the cube
-PRECISION  ?= SINGLE # floating point precision: SINGLE or DOUBLE
-ITERATIONS ?= 10     # number of iterations
-EVERY      ?= 1      # number of iterations to skip between to output
-LWS        ?= 8      # work group size to use for kernel execution
-STRIDE     ?= 8      # stride used in the CSoA memory layout
+PLATFORM   = 0          # OpenCL Platform ID
+DEVICE     = 0          # OpenCL Device ID
+DIM        = 8          # dimension of the cube
+VISCOSITY  = 0.0089     # viscosity of the fluid
+VELOCITY   = 0.05       # velocity of the moving wall
+ITERATIONS = 10         # number of iterations
+EVERY      = 1          # number of iterations to skip between two outputs
+LWS        = 8          # work group size to use for kernel execution
+STRIDE     = 8          # stride used in the CSoA memory layout
+PRECISION  = single     # floating point precision: single or double
+OPTIMIZE    = true      # use OpenCL optimization flags
+DUMP_PATH   = ./results # path to the dumping folder
+DUMP_MAP    = false     # dump the map of the simulation
+DUMP_F      = false     # dump the f at each simulation step
 ```
 
 The makefile provides some targets to compile and test the simulation:
@@ -63,21 +71,22 @@ make test32
 ## Usage
 ```wiki
 ./lbmcl --help
--P  --platform            Use the specified platform                     
--D  --device              Use the specified device                       
--d  --dim                 Set the lattice cube dimension                 
--n  --viscosity           Set the fluid viscosity                        
--u  --velocity            Set the x velocity of the moving wall          
--i  --iterations          Specify the number of iterations               
--e  --every               Save simulation results every N iterations     
--w  --work_group_size     Specify the work group size of kernel launch   
--s  --stride              Specify the stride used in CSoA memory layout  
--o  --optimize            Use "cl-fast-relaxed-math" in OpenCL kernels 
--v  --vtk_path            Specify where store VTI files                  
--p  --dump_path           Specify where store dumps                      
--m  --dump_map            Dump the lattice map                           
--f  --dump_f              Dump the lattice "f" for each iteration      
--h  --help                Show this help message and exit  
+-P  --platform            Use the specified platform
+-D  --device              Use the specified device
+-d  --dim                 Set the lattice cube dimension
+-n  --viscosity           Set the fluid viscosity
+-u  --velocity            Set the x velocity of the moving wall
+-i  --iterations          Specify the number of iterations
+-e  --every               Save simulation results every N iterations
+-w  --work_group_size     Specify the work group size of kernel launch
+-s  --stride              Specify the stride used in CSoA memory layout
+-F  --use_double          Make use of "double" type
+-o  --optimize            Use "cl-fast-relaxed-math" in OpenCL kernels
+-v  --vtk_path            Specify where store VTI files
+-p  --dump_path           Specify where store dumps
+-m  --dump_map            Dump the lattice map
+-f  --dump_f              Dump the lattice "f" for each iteration
+-h  --help                Show this help message and exit
 ```
 For example, to run 10 iteration of a 8x8x8 simulation with 0.0089 viscosity and 0.05 velocity, storing a VTK file each iteration, you can execute:
 ```bash

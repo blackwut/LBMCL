@@ -14,14 +14,15 @@ struct lbm_options {
     int platformID;
     int deviceID;
     size_t dim;
-    real_t viscosity;
-    real_t velocity;
+    double viscosity;
+    double velocity;
     size_t iterations;
     size_t every;
     std::string vtk_path;
     bool store_vtk;
     size_t lws;
     size_t stride;
+    bool use_double;
     bool optimize;
     std::string dump_path;
     bool dump_map;
@@ -39,6 +40,7 @@ struct lbm_options {
         store_vtk(false),
         lws(32),
         stride(32),
+        use_double(false),
         optimize(false),
         dump_path(RESULTS_FOLDER),
         dump_map(false),
@@ -51,9 +53,9 @@ struct lbm_options {
     size_t rho_dim() const { return (dim * dim * dim); }
     size_t map_dim() const { return (dim * dim * dim); }
 
-    size_t f_size()   const { return f_dim()   * sizeof(real_t); }
-    size_t u_size()   const { return u_dim()   * sizeof(real_t); }
-    size_t rho_size() const { return rho_dim() * sizeof(real_t); }
+    size_t f_size()   const { return f_dim()   * sizeof(double); }
+    size_t u_size()   const { return u_dim()   * sizeof(double); }
+    size_t rho_size() const { return rho_dim() * sizeof(double); }
     size_t map_size() const { return map_dim() * sizeof(int);    }
 
     size_t device_memory_size_b() const
@@ -85,6 +87,7 @@ struct lbm_options {
                      "-e  --every               Save simulation results every N iterations     \n"
                      "-w  --work_group_size     Specify the work group size of kernel launch   \n"
                      "-s  --stride              Specify the stride used in CSoA memory layout  \n"
+                     "-F  --use_double          Make use of \"double\" type                    \n"
                      "-o  --optimize            Use \"cl-fast-relaxed-math\" in OpenCL kernels \n"
                      "-v  --vtk_path            Specify where store VTI files                  \n"
                      "-p  --dump_path           Specify where store dumps                      \n"
@@ -118,7 +121,7 @@ struct lbm_options {
     {
         opterr = 0;
 
-        const char * const short_opts = "P:D:d:n:u:i:e:v:w:s:op:mfh";
+        const char * const short_opts = "P:D:d:n:u:i:e:v:w:s:Fop:mfh";
         const option long_opts[] = {
                 {"platform",        required_argument, nullptr, 'P'},
                 {"device",          required_argument, nullptr, 'D'},
@@ -129,6 +132,7 @@ struct lbm_options {
                 {"every",           optional_argument, nullptr, 'e'},
                 {"work_group_size", optional_argument, nullptr, 'w'},
                 {"stride",          optional_argument, nullptr, 's'},
+                {"use_double",      no_argument,       nullptr, 'F'},
                 {"optimize",        no_argument,       nullptr, 'o'},
                 {"vtk_path",        optional_argument, nullptr, 'v'},
                 {"dump_path",       optional_argument, nullptr, 'p'},
@@ -139,7 +143,7 @@ struct lbm_options {
         };
 
         int int_opt = -1;
-        real_t real_opt = std::numeric_limits<real_t>::quiet_NaN();
+        double real_opt = std::numeric_limits<double>::quiet_NaN();
 
         while (1) {
             const int opt = getopt_long(argc, argv, short_opts, long_opts, nullptr);
@@ -206,6 +210,9 @@ struct lbm_options {
                     }
                     stride = int_opt;
                     break;
+                case 'F':
+                    use_double = true;
+                    break;
                 case 'o':
                     optimize = true;
                     break;
@@ -247,12 +254,12 @@ struct lbm_options {
             stride = most_significant_bit(stride);
             std::cout << "stride is rounded to the previous power of 2 that is " << stride << std::endl;
         }
-
     }
 
 
     void print_values()
     {
+        const std::string prec = (use_double ? "double" : "single");
         std::cout << std::boolalpha
                   << "platformID       = " << platformID             << "\n"
                   << "deviceID         = " << deviceID               << "\n"
@@ -265,6 +272,7 @@ struct lbm_options {
                   << "iterations       = " << iterations             << "\n"
                   << "work_group_size  = " << lws                    << "\n"
                   << "stride           = " << stride                 << "\n"
+                  << "precision        = " << prec                   << "\n"
                   << "optimize         = " << optimize               << "\n"
                   << "every            = " << every                  << "\n"
                   << "VTK PATH         = " << vtk_path               << "\n"

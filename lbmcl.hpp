@@ -15,16 +15,12 @@
 #define DUMP_PRECISION      6
 #define VTK_PRECISION       16
 
-#if FP_SINGLE
-#define VTK_DATA_TYPE   "Float32"
-#else
-#define VTK_DATA_TYPE   "Float64"
-#endif
-
 
 template <typename T>
 class LBMCL
 {
+    static_assert(std::is_same<T, float>::value || std::is_same<T, double>::value,
+                  "Only float or double data type is valid.");
 private:
     size_t dim;
     T viscosity;
@@ -206,6 +202,7 @@ private:
         const size_t from = 1;
         const size_t to = dim - 1;
         const size_t extent = to - from - 1;
+        const std::string dataTypeString = (std::is_same<T, float>::value ? "Float32" : "Float64");
 
         std::ofstream vtk;
         vtk.open(filenameBuilder.str());
@@ -215,12 +212,12 @@ private:
             << "  <ImageData WholeExtent=\"0 " << extent << " 0 " << extent << " 0 " << extent << "\" Origin=\"0 0 0\" Spacing=\"1 1 1\">\n"
             << "    <Piece Extent=\"0 " << extent << " 0 " << extent << " 0 " << extent << "\">\n"
             << "      <PointData Scalars=\"rho\">\n"
-            << "        <DataArray type=\"" << VTK_DATA_TYPE << "\" Name=\"rho\" NumberOfComponents=\"1\" format=\"ascii\">\n";
+            << "        <DataArray type=\"" << dataTypeString << "\" Name=\"rho\" NumberOfComponents=\"1\" format=\"ascii\">\n";
 
         for (size_t z = from; z < to; ++z) {
             for (size_t y = from; y < to; ++y) {
                 for (size_t x = from; x < to; ++x) {
-                    const real_t val = rho_values[IDxyzDIM(x, y, z, dim)];
+                    const T val = rho_values[IDxyzDIM(x, y, z, dim)];
                     vtk << std::scientific << std::setprecision(VTK_PRECISION) << val << " ";
                 }
                 vtk << "\n";
@@ -228,15 +225,15 @@ private:
         }
 
         vtk << "        </DataArray>\n"
-            << "        <DataArray type=\"" << VTK_DATA_TYPE << "\" Name=\"v\" NumberOfComponents=\"3\" format=\"ascii\">\n";
+            << "        <DataArray type=\"" << dataTypeString << "\" Name=\"v\" NumberOfComponents=\"3\" format=\"ascii\">\n";
 
         for (size_t z = from; z < (to); ++z) {
             for (size_t y = from; y < (to); ++y) {
                 for (size_t x = from; x < (to); ++x) {
                     const size_t id = IDxyzDIM(x, y, z, dim);
-                    const real_t val_x = u_values[IDux(id)];
-                    const real_t val_y = u_values[IDuy(id)];
-                    const real_t val_z = u_values[IDuz(id)];
+                    const T val_x = u_values[IDux(id)];
+                    const T val_y = u_values[IDuy(id)];
+                    const T val_z = u_values[IDuz(id)];
                     vtk << std::scientific << std::setprecision(VTK_PRECISION) << val_x << " "
                         << std::scientific << std::setprecision(VTK_PRECISION) << val_y << " "
                         << std::scientific << std::setprecision(VTK_PRECISION) << val_z << " ";
@@ -484,8 +481,7 @@ public:
 
         double totalTime = 0.0;
         for (std::pair<std::string, cl::Event> & p : events) {
-            const double time_evt = CLUEventsGetTime(p.second, p.second);
-            totalTime += time_evt;
+            totalTime += CLUEventsGetTime(p.second, p.second);
         }
 
         return totalTime;
@@ -540,10 +536,12 @@ public:
 
     std::string statistics(char separator)
     {
-        std::string dev_name = device.getInfo<CL_DEVICE_NAME>();
-        std::stringstream stat;
+        const std::string prec = (std::is_same<T, float>::value ? "single" : "double");
+        const std::string dev_name = device.getInfo<CL_DEVICE_NAME>();
 
+        std::stringstream stat;
         stat << dev_name.c_str() << separator
+             << prec             << separator
              << dim              << separator
              << iterations       << separator
              << every            << separator

@@ -541,7 +541,7 @@ void compute(__global const real_t * restrict f_collide,
 #endif
 
 #if (STREAMING_METHOD == SAILFISH_METHOD)
-    int lx = get_local_id(0);
+    const int lx = get_local_id(0);
 
     bool alive = true;
     if (is_wall(cell_type)) {
@@ -624,7 +624,7 @@ void compute(__global const real_t * restrict f_collide,
         // W propagation in shared memory
         // Note: propagation to ghost nodes is done directly in global memory as there
         // are no threads running for the ghost nodes.
-        if ((lx > 1 || (lx > 0 && x >= 64)) && !propagation_only) {
+        if ((lx > 1 || (lx > 0 && x >= LWS)) && !propagation_only) {
              _f3[lx - 1] = f3;
              _f8[lx - 1] = f8;
              _f9[lx - 1] = f9;
@@ -642,7 +642,7 @@ void compute(__global const real_t * restrict f_collide,
 
     barrier(CLK_LOCAL_MEM_FENCE);
     // The rightmost thread is not updated in this block.
-    if (lx < 63 && x < (DIM-1) && !propagation_only && alive)
+    if (lx < (LWS - 1) && x < (DIM-1) && !propagation_only && alive)
     {
         if (_f1[lx] != -1.0) {
                              f_stream[IDXYZQ( x,   y,   z,  3)] =  _f3[lx];             //  0  0  0

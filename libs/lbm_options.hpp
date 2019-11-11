@@ -53,10 +53,10 @@ struct lbm_options {
     size_t rho_dim() const { return (dim * dim * dim); }
     size_t map_dim() const { return (dim * dim * dim); }
 
-    size_t f_size()   const { return f_dim()   * sizeof(double); }
-    size_t u_size()   const { return u_dim()   * sizeof(double); }
-    size_t rho_size() const { return rho_dim() * sizeof(double); }
-    size_t map_size() const { return map_dim() * sizeof(int);    }
+    size_t f_size()   const { return f_dim()   * (use_double ? sizeof(double) : sizeof(float)); }
+    size_t u_size()   const { return u_dim()   * (use_double ? sizeof(double) : sizeof(float)); }
+    size_t rho_size() const { return rho_dim() * (use_double ? sizeof(double) : sizeof(float)); }
+    size_t map_size() const { return map_dim() * sizeof(int); }
 
     size_t device_memory_size_b() const
     {

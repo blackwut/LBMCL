@@ -227,18 +227,18 @@ inline int get_cell_type(const int x, const int y, const int z)
 {
     int cell_type = NONE;
 
-    if (x == 1)           cell_type |= LEFT;
+    if (x == 1)         cell_type |= LEFT;
     if (x == (DIM - 2)) cell_type |= RIGHT;
-    if (y == 1)           cell_type |= BOTTOM;
+    if (y == 1)         cell_type |= BOTTOM;
     if (y == (DIM - 2)) cell_type |= TOP;
-    if (z == 1)           cell_type |= BACK;
+    if (z == 1)         cell_type |= BACK;
     if (z == (DIM - 2)) cell_type |= FRONT;
 
-    if (x == 0)           cell_type = WALL;
+    if (x == 0)         cell_type = WALL;
     if (x == (DIM - 1)) cell_type = WALL;
-    if (y == 0)           cell_type = WALL;
+    if (y == 0)         cell_type = WALL;
     if (y == (DIM - 1)) cell_type = WALL;
-    if (z == 0)           cell_type = WALL;
+    if (z == 0)         cell_type = WALL;
     if (z == (DIM - 1)) cell_type = WALL;
 
     if (cell_type == (LEFT  | BACK | BOTTOM) ||
@@ -250,7 +250,7 @@ inline int get_cell_type(const int x, const int y, const int z)
     }
 
     if (cell_type == MOVING_BOUNDARY) cell_type |= MOVING;
-    if (cell_type == NONE) cell_type = FLUID;
+    if (cell_type == NONE)            cell_type = FLUID;
 
     return cell_type;
 }
@@ -276,10 +276,19 @@ void initialize(__global real_t * restrict f_stream,
     const int id = IDxyz(x, y, z);
     const int cell_type = get_cell_type(x, y, z);
 
+    map[id] = cell_type;
+
+
     const real_t rho = INITIAL_DENSITY;
     const real_t ux  = (is_moving_init(cell_type) ? INITIAL_VELOCITY_X : 0.0);
     const real_t uy  = (is_moving_init(cell_type) ? INITIAL_VELOCITY_Y : 0.0);
     const real_t uz  = (is_moving_init(cell_type) ? INITIAL_VELOCITY_Z : 0.0);
+
+    density[id] = (is_store_macro(cell_type) ? rho : NAN);
+    UX(id)      = (is_store_macro(cell_type) ? ux : NAN);
+    UY(id)      = (is_store_macro(cell_type) ? uy : NAN);
+    UZ(id)      = (is_store_macro(cell_type) ? uz : NAN);
+
 
 #if (COLLIDE_METHOD == SCRATCH_METHOD)
     real_t eu = 0.0;
@@ -319,22 +328,15 @@ void initialize(__global real_t * restrict f_stream,
 #undef  UNROLL_X
 #define UNROLL_X(i) f_stream[IDxyzq(id, i)] = (is_wall(cell_type) ? NAN : f##i);
     UNROLL_19();
-
-    density[id] = (is_store_macro(cell_type) ? rho : NAN);
-    UX(id)      = (is_store_macro(cell_type) ? ux : NAN);
-    UY(id)      = (is_store_macro(cell_type) ? uy : NAN);
-    UZ(id)      = (is_store_macro(cell_type) ? uz : NAN);
-
-    map[id] = cell_type;
 }
 
 
 __kernel
-void compute(__global const real_t * restrict f_collide,
+void compute(__global real_t * restrict f_stream,
+             __global const real_t * restrict f_collide,
              __global real_t * restrict density,
              __global real_t * restrict u,
-             __global const int * restrict map,
-             __global real_t * restrict f_stream)
+             __global const int * restrict map)
 {
     const int x = get_global_id(0);
     const int y = get_global_id(1);

@@ -19,7 +19,6 @@ struct lbm_options {
     size_t iterations;
     size_t every;
     std::string vtk_path;
-    bool store_vtk;
     size_t lws;
     size_t stride;
     bool use_double;
@@ -37,7 +36,6 @@ struct lbm_options {
         iterations(10),
         every(1),
         vtk_path(RESULTS_FOLDER),
-        store_vtk(false),
         lws(32),
         stride(32),
         use_double(false),
@@ -46,35 +44,6 @@ struct lbm_options {
         dump_map(false),
         dump_f(false)
     {}
-
-
-    size_t f_dim()   const { return (dim * dim * dim * Q); }
-    size_t u_dim()   const { return (dim * dim * dim * D); }
-    size_t rho_dim() const { return (dim * dim * dim); }
-    size_t map_dim() const { return (dim * dim * dim); }
-
-    size_t f_size()   const { return f_dim()   * (use_double ? sizeof(double) : sizeof(float)); }
-    size_t u_size()   const { return u_dim()   * (use_double ? sizeof(double) : sizeof(float)); }
-    size_t rho_size() const { return rho_dim() * (use_double ? sizeof(double) : sizeof(float)); }
-    size_t map_size() const { return map_dim() * sizeof(int); }
-
-    size_t device_memory_size_b() const
-    {
-        return f_size() * 2 + u_size() + rho_size() + map_size();
-    }
-
-
-    size_t device_memory_size_k() const
-    {
-        return device_memory_size_b() / (1 << 10);
-    }
-
-
-    size_t device_memory_size_m() const
-    {
-        return device_memory_size_b() / (1 << 20);
-    }
-
 
     void print_help()
     {
@@ -222,7 +191,6 @@ struct lbm_options {
                         vtk_path = RESULTS_FOLDER;
                         std::cout << "VTI files will be stored in:" << vtk_path << std::endl;
                     }
-                    store_vtk = true;
                     break;
                 case 'p':
                     dump_path  = std::string(optarg);
@@ -254,30 +222,5 @@ struct lbm_options {
             stride = most_significant_bit(stride);
             std::cout << "stride is rounded to the previous power of 2 that is " << stride << std::endl;
         }
-    }
-
-
-    void print_values()
-    {
-        const std::string prec = (use_double ? "double" : "single");
-        std::cout << std::boolalpha
-                  << "platformID       = " << platformID             << "\n"
-                  << "deviceID         = " << deviceID               << "\n"
-                  << "dim              = " << dim                    << "\n"
-                  << "viscosity        = " << viscosity              << "\n"
-                  << "velocity         = " << velocity               << "\n"
-                  << "Device Mem. (B)  = " << device_memory_size_b() << "\n"
-                  << "Device Mem. (KB) = " << device_memory_size_k() << "\n"
-                  << "Device Mem. (MB) = " << device_memory_size_m() << "\n"
-                  << "iterations       = " << iterations             << "\n"
-                  << "work_group_size  = " << lws                    << "\n"
-                  << "stride           = " << stride                 << "\n"
-                  << "precision        = " << prec                   << "\n"
-                  << "optimize         = " << optimize               << "\n"
-                  << "every            = " << every                  << "\n"
-                  << "VTK PATH         = " << vtk_path               << "\n"
-                  << "STORE VTI        = " << store_vtk              << "\n"
-                  << "DUMP F           = " << dump_f                 << "\n"
-                  << "DUMP MAP         = " << dump_map               << "\n";
     }
 };

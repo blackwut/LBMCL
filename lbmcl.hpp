@@ -72,6 +72,48 @@ private:
     inline size_t rho_size() const { return rho_dim() * sizeof(T);  }
     inline size_t map_size() const { return map_dim() * sizeof(int);}
 
+    inline size_t device_memory_size_b() const
+    {
+        return f_size() * 2 + u_size() + rho_size() + map_size();
+    }
+
+
+    inline size_t device_memory_size_k() const
+    {
+        return device_memory_size_b() / (1 << 10);
+    }
+
+
+    inline size_t device_memory_size_m() const
+    {
+        return device_memory_size_b() / (1 << 20);
+    }
+
+    std::string kernelOptionsStr()
+    {
+        std::stringstream optionsBuilder;
+        optionsBuilder << "-Werror ";
+        optionsBuilder << "-I. ";
+        optionsBuilder << "-DDIM=" << dim << " ";
+        optionsBuilder << "-DLWS=" << lws[0] << " ";
+        optionsBuilder << "-DSTRIDE=" << stride << " ";
+        optionsBuilder << "-DVISCOSITY=" << viscosity << " ";
+        optionsBuilder << "-DVELOCITY=" << velocity << " ";
+
+
+        if (std::is_same<T, float>::value) {
+            optionsBuilder << "-DFP_SINGLE ";
+            optionsBuilder << "-cl-single-precision-constant ";
+        } else {
+            optionsBuilder << "-DFP_DOUBLE ";
+        }
+
+        if (optimize) {
+            optionsBuilder << "-cl-fast-relaxed-math ";
+        }
+
+        return optionsBuilder.str();
+    }
 
 
     void storeMap()
@@ -297,39 +339,14 @@ public:
     // Create all objects needed to perform the simulation, excluding host
     // buffers.
     // To initialize the simulation see initialize() function.
-    void setupDevice(int platformID, int deviceID, bool print_options = false)
+    void setupDevice(int platformID, int deviceID)
     {
         CLUSelectPlatform(platform, platformID);
         CLUSelectDevice(device, platform, deviceID);
         CLUCreateContext(context, device);
         CLUCreateQueue(queue, context, device);
 
-        std::stringstream optionsBuilder;
-        optionsBuilder << "-Werror ";
-        optionsBuilder << "-I. ";
-        optionsBuilder << "-DDIM=" << dim << " ";
-        optionsBuilder << "-DLWS=" << lws[0] << " ";
-        optionsBuilder << "-DSTRIDE=" << stride << " ";
-        optionsBuilder << "-DVISCOSITY=" << viscosity << " ";
-        optionsBuilder << "-DVELOCITY=" << velocity << " ";
-
-
-        if (std::is_same<T, float>::value) {
-            optionsBuilder << "-DFP_SINGLE ";
-            optionsBuilder << "-cl-single-precision-constant ";
-        } else {
-            optionsBuilder << "-DFP_DOUBLE ";
-        }
-
-        if (optimize) {
-            optionsBuilder << "-cl-fast-relaxed-math ";
-        }
-
-        if (print_options) {
-           std::cout << "Kernels options: " << optionsBuilder.str() << std::endl;
-        }
-
-        CLUBuildProgram(program, context, device, "kernels.cl", optionsBuilder.str());
+        CLUBuildProgram(program, context, device, "kernels.cl", kernelOptionsStr());
 
         cl_int err;
 
@@ -367,17 +384,18 @@ public:
             initialize_kernel.setArg(3, u);
             initialize_kernel.setArg(4, map);
             // Set arguments to compute kernel
-            compute_kernel.setArg(0, f_collide);
-            compute_kernel.setArg(1, rho);
-            compute_kernel.setArg(2, u);
-            compute_kernel.setArg(3, map);
-            compute_kernel.setArg(4, f_stream);
+            compute_kernel.setArg(0, f_stream);
+            compute_kernel.setArg(1, f_collide);
+            compute_kernel.setArg(2, rho);
+            compute_kernel.setArg(3, u);
+            compute_kernel.setArg(4, map);
             // Set arguments to compute kernel
-            compute_swap_kernel.setArg(0, f_stream);
-            compute_swap_kernel.setArg(1, rho);
-            compute_swap_kernel.setArg(2, u);
-            compute_swap_kernel.setArg(3, map);
-            compute_swap_kernel.setArg(4, f_collide);
+            compute_swap_kernel.setArg(0, f_collide);
+            compute_swap_kernel.setArg(1, f_stream);
+            compute_swap_kernel.setArg(2, rho);
+            compute_swap_kernel.setArg(3, u);
+            compute_swap_kernel.setArg(4, map);
+            
         } catch (cl::Error err) {
             CLUErrorPrintExit(err);
         }
@@ -531,6 +549,31 @@ public:
     double kernelsMLUPS()
     {
         return (wet_dim() * iterations) / (kernelsTimeMS() * 1000);
+    }
+
+
+    void printConfiguration()
+    {
+        const std::string prec = (std::is_same<T, float>::value ? "single" : "double");
+        const std::string dev_name = device.getInfo<CL_DEVICE_NAME>();
+        std::cout << std::boolalpha
+                  << "kernel options   = " << kernelOptionsStr()     << "\n"
+                  << "device           = " << dev_name               << "\n"
+                  << "dim              = " << dim                    << "\n"
+                  << "viscosity        = " << viscosity              << "\n"
+                  << "velocity         = " << velocity               << "\n"
+                  << "Device Mem. (B)  = " << device_memory_size_b() << "\n"
+                  << "Device Mem. (KB) = " << device_memory_size_k() << "\n"
+                  << "Device Mem. (MB) = " << device_memory_size_m() << "\n"
+                  << "iterations       = " << iterations             << "\n"
+                  << "work_group_size  = " << lws[0]                 << "\n"
+                  << "stride           = " << stride                 << "\n"
+                  << "precision        = " << prec                   << "\n"
+                  << "optimize         = " << optimize               << "\n"
+                  << "every            = " << every                  << "\n"
+                  << "VTK PATH         = " << vtk_path               << "\n"
+                  << "DUMP F           = " << dump_f                 << "\n"
+                  << "DUMP MAP         = " << dump_map               << "\n";
     }
 
 

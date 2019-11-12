@@ -21,6 +21,7 @@ void performSimulation(const lbm_options & opts)
                    opts.dump_f);
 
     lbmcl.setupDevice(opts.platformID, opts.deviceID, true);
+    lbmcl.printConfiguration();
     lbmcl.initialize();
     lbmcl.performSimulation();
     lbmcl.waitCompletion();
@@ -37,7 +38,7 @@ int main(int argc, char * argv[])
 {
     lbm_options opts;
     opts.process_args(argc, argv);
-    opts.print_values();
+    // opts.print_values();
 
     if (opts.use_double) {
         performSimulation<double>(opts);

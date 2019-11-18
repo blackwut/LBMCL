@@ -423,8 +423,7 @@ void compute(__global real_t * restrict f_stream,
         const int ny = y + E##i##_Y;                                            \
         const int nz = z + E##i##_Z;                                            \
         if (0 <= nx && nx < DIM && 0 <= ny && ny < DIM && 0 <= nz && nz < DIM) {\
-            const int index = IDxyz(nx, ny, nz);                                \
-            f_stream[IDxyzq(index, i)] = f##i;                                  \
+            f_stream[IDXYZQ(nx, ny, nz, i)] = f##i;                             \
         }                                                                       \
     }
     UNROLL_19();

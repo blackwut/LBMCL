@@ -20,7 +20,7 @@ void performSimulation(const lbm_options & opts)
                    opts.dump_map,
                    opts.dump_f);
 
-    lbmcl.setupDevice(opts.platformID, opts.deviceID, true);
+    lbmcl.setupDevice(opts.platformID, opts.deviceID);
     lbmcl.printConfiguration();
     lbmcl.initialize();
     lbmcl.performSimulation();

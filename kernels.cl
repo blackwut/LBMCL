@@ -364,7 +364,7 @@ void compute(__global real_t * restrict f_stream,
     }
 
     /***   Store macro quantities (rho & u)   ***/
-    if (is_store_macro(cell_type)) {
+    if (is_store_macro(cell_type)) {    // TODO: avoid to store macro quantities if not needed
         density[id] = rho;
         UX(id) = ux;
         UY(id) = uy;
@@ -441,7 +441,8 @@ void compute(__global real_t * restrict f_stream,
     if (is_corner(cell_type)) {
         propagation_only = true;
     }
-
+// TODO: reaorder storing of f_stream q-indexes
+// TODO: remove ghost nodes to get better performance and small code
     __local real_t  _f1[LWS];
     __local real_t  _f7[LWS];
     __local real_t _f10[LWS];

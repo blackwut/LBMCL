@@ -35,7 +35,7 @@
 #define SIMULATION_METHOD               SCRATCH_METHOD
 
 #define CALCULATION_ORDER_SAILFISH      1
-#define STREAMING_METHOD                SCRATCH_METHOD
+#define STREAMING_METHOD                SAILFISH_METHOD
 
 
 #ifdef FP_DOUBLE
@@ -320,6 +320,10 @@ void compute(__global real_t * restrict f_stream,
     const int id = IDxyz(x, y, z);
     const int cell_type = map[id];
 
+    real_t eu = 0.0;
+    real_t u2 = 0.0;
+#define tmp eu
+
 #undef  UNROLL_X
 #define UNROLL_X(i) real_t f##i = f_collide[IDxyzq(id, i)];
     UNROLL_19();
@@ -371,13 +375,10 @@ void compute(__global real_t * restrict f_stream,
         UZ(id) = uz;
     }
 
+    u2 = (ux * ux) + (uy * uy) + (uz * uz);
 
     /***   Boundary Conditions   ***/
     if (is_moving(cell_type)) {
-
-        real_t eu = 0.0;
-        const real_t u2 = (ux * ux) + (uy * uy) + (uz * uz);
-
 #undef  UNROLL_X
 #define UNROLL_X(i)                                                                  \
         eu = (ux * E##i##_X) + (uy * E##i##_Y) + (uz * E##i##_Z);                    \
@@ -387,29 +388,20 @@ void compute(__global real_t * restrict f_stream,
     } else if (is_bounceback(cell_type)) {
 
 #undef  UNROLL_X
-#define UNROLL_X(i)                 \
-        {                           \
-            const real_t tmp = f##i;\
-            f##i = F_S(i);          \
-            F_S(i) = tmp;           \
-        }
+#define UNROLL_X(i)     \
+        tmp = f##i;     \
+        f##i = F_S(i);  \
+        F_S(i) = tmp;
         UNROLL_HALF_19();
     }
 
 
     /***   Collision   ***/
     if (is_collision(cell_type)) {
-
-        real_t eu = 0.0;
-        const real_t u2 = (ux * ux) + (uy * uy) + (uz * uz);
 #undef  UNROLL_X
-#define UNROLL_X(i)                                                                                  \
-        eu = (ux * E##i##_X) + (uy * E##i##_Y) + (uz * E##i##_Z);                                    \
-        const real_t fnew##i = (rho * OMEGA_##i) * (1.0 + (3.0 * eu) + (4.5 * eu * eu) - (1.5 * u2));
-        UNROLL_19();
-
-#undef  UNROLL_X
-#define UNROLL_X(i) f##i = compute_bgk(f##i, fnew##i);
+#define UNROLL_X(i)                                                                                     \
+        eu = (ux * E##i##_X) + (uy * E##i##_Y) + (uz * E##i##_Z);                                       \
+        f##i = compute_bgk(f##i, (rho * OMEGA_##i) * (1.0 + (3.0 * eu) + (4.5 * eu * eu) - (1.5 * u2)));
         UNROLL_19();
     }
 
@@ -433,15 +425,10 @@ void compute(__global real_t * restrict f_stream,
     const int lx = get_local_id(0);
 
     bool alive = true;
-    if (is_wall(cell_type)) {
+    if (is_wall(cell_type) || is_corner(cell_type)) {
         alive = false;
     }
 
-    bool propagation_only = false;
-    if (is_corner(cell_type)) {
-        propagation_only = true;
-    }
-// TODO: reaorder storing of f_stream q-indexes
 // TODO: remove ghost nodes to get better performance and small code
     __local real_t  _f1[LWS];
     __local real_t  _f7[LWS];
@@ -453,49 +440,37 @@ void compute(__global real_t * restrict f_stream,
 #define  _f9  _f7
 #define _f13 _f15
 #define _f17 _f11
-    _f1[lx] = -1.0;
+
+    _f1[lx] = -1.0; // Fill the propagation buffer with sentinel values.
     barrier(CLK_LOCAL_MEM_FENCE);
-    if (!propagation_only && alive)
-    {
-        // Update the 0-th direction distribution
+
+    if (alive) {
         f_stream[IDxyzq(id, 0)] = f0;                                                   //  0  0  0
         // Propagation in directions orthogonal to the X axis (global memory)
         if (y < (DIM-1)) f_stream[IDXYZQ(   x, y+1,   z,  2)] = f2;                     //  0 +1  0
         if (y > 0      ) f_stream[IDXYZQ(   x, y-1,   z,  4)] = f4;                     //  0 -1  0
-        if (z < (DIM-1)) f_stream[IDXYZQ(   x,   y, z+1,  6)] = f6;                     //  0  0 +1
         if (z > 0      ) f_stream[IDXYZQ(   x,   y, z-1,  5)] = f5;                     //  0  0 -1
+        if (z < (DIM-1)) f_stream[IDXYZQ(   x,   y, z+1,  6)] = f6;                     //  0  0 +1
 
-        if (y < (DIM-1) && z < (DIM-1)) f_stream[IDXYZQ(   x, y+1, z+1, 16)] = f16;     //  0 +1 +1
-        if (y > 0       && z < (DIM-1)) f_stream[IDXYZQ(   x, y-1, z+1, 18)] = f18;     //  0 -1 +1
         if (y < (DIM-1) && z > 0      ) f_stream[IDXYZQ(   x, y+1, z-1, 12)] = f12;     //  0 +1 -1
         if (y > 0       && z > 0      ) f_stream[IDXYZQ(   x, y-1, z-1, 14)] = f14;     //  0 -1 -1
+        if (y < (DIM-1) && z < (DIM-1)) f_stream[IDXYZQ(   x, y+1, z+1, 16)] = f16;     //  0 +1 +1
+        if (y > 0       && z < (DIM-1)) f_stream[IDXYZQ(   x, y-1, z+1, 18)] = f18;     //  0 -1 +1
 
         // E propagation in shared memory
-        if (x < (DIM-1)) {
-            // Note: propagation to ghost nodes is done directly in global memory as there
-            // are no threads running for the ghost nodes.
-            if (lx < (LWS-1) && x != (DIM-2)) {
-                 _f1[lx + 1] =  f1;
-                 _f7[lx + 1] =  f7;
-                _f10[lx + 1] = f10;
-                _f11[lx + 1] = f11;
-                _f15[lx + 1] = f15;
-                // E propagation in global memory (at right block boundary)
-            } else {
-                                 f_stream[IDXYZQ( x+1,   y,   z,  1)] =  f1;            // +1  0  0
-                if (y < (DIM-1)) f_stream[IDXYZQ( x+1, y+1,   z,  7)] =  f7;            // +1 +1  0
-                if (y > 0      ) f_stream[IDXYZQ( x+1, y-1,   z, 10)] = f10;            // +1 -1  0
-                if (z < (DIM-1)) f_stream[IDXYZQ( x+1,   y, z+1, 15)] = f15;            // +1  0 +1
-                if (z > 0      ) f_stream[IDXYZQ( x+1,   y, z-1, 11)] = f11;            // +1  0 -1
-            }
+        if (x < (DIM-1) && lx < (LWS-1) && x != (DIM-2)) {
+             _f1[lx + 1] =  f1;
+             _f7[lx + 1] =  f7;
+            _f10[lx + 1] = f10;
+            _f11[lx + 1] = f11;
+            _f15[lx + 1] = f15;
         }
     }
 
     barrier(CLK_LOCAL_MEM_FENCE);
     // Save locally propagated distributions into global memory.
     // The leftmost thread is not updated in this block.
-    if (lx > 0 && x < DIM && !propagation_only && alive)
-    {
+    if (lx > 0 && x < DIM && alive) {
         if (_f1[lx] != -1.0) {
                              f_stream[IDXYZQ( x,   y,   z,  1)] =  _f1[lx];             //  0  0  0
             if (y < (DIM-1)) f_stream[IDXYZQ( x, y+1,   z,  7)] =  _f7[lx];             //  0 +1  0
@@ -506,41 +481,26 @@ void compute(__global real_t * restrict f_stream,
     }
 
     barrier(CLK_LOCAL_MEM_FENCE);
-    // Refill the propagation buffer with sentinel values.
-    _f1[lx] = -1.0;
+    _f1[lx] = -1.0; // Refill the propagation buffer with sentinel values.
     barrier(CLK_LOCAL_MEM_FENCE);
-    if (!propagation_only && alive)
-    {
-        // W propagation in shared memory
-        // Note: propagation to ghost nodes is done directly in global memory as there
-        // are no threads running for the ghost nodes.
-        if ((lx > 1 || (lx > 0 && x >= LWS)) && !propagation_only) {
-             _f3[lx - 1] = f3;
-             _f8[lx - 1] = f8;
-             _f9[lx - 1] = f9;
-            _f13[lx - 1] = f13;
-            _f17[lx - 1] = f17;
-            // W propagation in global memory (at left block boundary)
-        } else if (x > 0) {
-                             f_stream[IDXYZQ( x-1,   y,   z,  3)] =  f3;                // -1  0  0
-            if (y < (DIM-1)) f_stream[IDXYZQ( x-1, y+1,   z,  8)] =  f8;                // -1 +1  0
-            if (y > 0      ) f_stream[IDXYZQ( x-1, y-1,   z,  9)] =  f9;                // -1 -1  0
-            if (z < (DIM-1)) f_stream[IDXYZQ( x-1,   y, z+1, 17)] = f17;                // -1  0 +1
-            if (z > 0      ) f_stream[IDXYZQ( x-1,   y, z-1, 13)] = f13;                // -1  0 -1
-        }
+
+    // W propagation in shared memory
+    if ((lx > 1 || (lx > 0 && x >= LWS)) && alive) {
+         _f3[lx - 1] = f3;
+         _f8[lx - 1] = f8;
+         _f9[lx - 1] = f9;
+        _f13[lx - 1] = f13;
+        _f17[lx - 1] = f17;
     }
 
     barrier(CLK_LOCAL_MEM_FENCE);
     // The rightmost thread is not updated in this block.
-    if (lx < (LWS-1) && x < (DIM-1) && !propagation_only && alive)
-    {
-        if (_f1[lx] != -1.0) {
-                             f_stream[IDXYZQ( x,   y,   z,  3)] =  _f3[lx];             //  0  0  0
-            if (y < (DIM-1)) f_stream[IDXYZQ( x, y+1,   z,  8)] =  _f8[lx];             //  0 +1  0
-            if (y > 0      ) f_stream[IDXYZQ( x, y-1,   z,  9)] =  _f9[lx];             //  0 -1  0
-            if (z < (DIM-1)) f_stream[IDXYZQ( x,   y, z+1, 17)] = _f17[lx];             //  0  0 +1
-            if (z > 0      ) f_stream[IDXYZQ( x,   y, z-1, 13)] = _f13[lx];             //  0  0 -1
-        }
+    if (lx < (LWS-1) && x < (DIM-1) && _f1[lx] != -1.0 && alive) {
+                         f_stream[IDXYZQ( x,   y,   z,  3)] =  _f3[lx];             //  0  0  0
+        if (y < (DIM-1)) f_stream[IDXYZQ( x, y+1,   z,  8)] =  _f8[lx];             //  0 +1  0
+        if (y > 0      ) f_stream[IDXYZQ( x, y-1,   z,  9)] =  _f9[lx];             //  0 -1  0
+        if (z > 0      ) f_stream[IDXYZQ( x,   y, z-1, 13)] = _f13[lx];             //  0  0 -1
+        if (z < (DIM-1)) f_stream[IDXYZQ( x,   y, z+1, 17)] = _f17[lx];             //  0  0 +1
     }
 #endif
 }

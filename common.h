@@ -23,7 +23,7 @@ typedef float real_t;
 #define MOVING                          (1 << 1)
 #define CORNER                          (1 << 2)
 #define WALL                            (1 << 3)
-        
+
 #define LEFT                            (1 << 4)
 #define RIGHT                           (1 << 5)
 #define TOP                             (1 << 6)

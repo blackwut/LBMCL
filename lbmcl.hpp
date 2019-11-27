@@ -353,9 +353,11 @@ public:
         dump_data = (every != 0);
 
         if (work_group_size > dim) {
-            lws = cl::NDRange(dim, 1, 1);
-            std::cout << "work_group_size is set to " << dim << std::endl;
+            work_group_size = dim;
+            std::cout << "work_group_size is set to " << work_group_size << std::endl;
         }
+
+        lws = cl::NDRange(work_group_size, 1, 1);
 
         if (!is_power_of_two(stride)) {
             stride = most_significant_bit(stride);

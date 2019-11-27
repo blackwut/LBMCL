@@ -409,15 +409,7 @@ void compute(__global real_t * restrict f_stream,
     if (is_wall(cell_type)) return;
     if (is_corner(cell_type)) return;
 #undef  UNROLL_X
-#define UNROLL_X(i)                                                             \
-    {                                                                           \
-        const int nx = x + E##i##_X;                                            \
-        const int ny = y + E##i##_Y;                                            \
-        const int nz = z + E##i##_Z;                                            \
-        if (0 <= nx && nx < DIM && 0 <= ny && ny < DIM && 0 <= nz && nz < DIM) {\
-            f_stream[IDXYZQ(nx, ny, nz, i)] = f##i;                             \
-        }                                                                       \
-    }
+#define UNROLL_X(i) f_stream[IDXYZQ(x + E##i##_X, y + E##i##_Y, z + E##i##_Z, i)] = f##i;
     UNROLL_19();
 #endif
 
@@ -470,7 +462,7 @@ void compute(__global real_t * restrict f_stream,
     barrier(CLK_LOCAL_MEM_FENCE);
     // Save locally propagated distributions into global memory.
     // The leftmost thread is not updated in this block.
-    if (lx > 0 && x < DIM && alive) {
+    if (alive && lx > 0 && x < DIM) {
         if (_f1[lx] != -1.0) {
                              f_stream[IDXYZQ( x,   y,   z,  1)] =  _f1[lx];             //  0  0  0
             if (y < (DIM-1)) f_stream[IDXYZQ( x, y+1,   z,  7)] =  _f7[lx];             //  0 +1  0
@@ -485,7 +477,7 @@ void compute(__global real_t * restrict f_stream,
     barrier(CLK_LOCAL_MEM_FENCE);
 
     // W propagation in shared memory
-    if ((lx > 1 || (lx > 0 && x >= LWS)) && alive) {
+    if (alive && (lx > 1 || (lx > 0 && x >= LWS))) {
          _f3[lx - 1] = f3;
          _f8[lx - 1] = f8;
          _f9[lx - 1] = f9;
@@ -495,7 +487,7 @@ void compute(__global real_t * restrict f_stream,
 
     barrier(CLK_LOCAL_MEM_FENCE);
     // The rightmost thread is not updated in this block.
-    if (lx < (LWS-1) && x < (DIM-1) && _f1[lx] != -1.0 && alive) {
+    if (alive && lx < (LWS-1) && x < (DIM-1) && _f1[lx] != -1.0) {
                          f_stream[IDXYZQ( x,   y,   z,  3)] =  _f3[lx];             //  0  0  0
         if (y < (DIM-1)) f_stream[IDXYZQ( x, y+1,   z,  8)] =  _f8[lx];             //  0 +1  0
         if (y > 0      ) f_stream[IDXYZQ( x, y-1,   z,  9)] =  _f9[lx];             //  0 -1  0

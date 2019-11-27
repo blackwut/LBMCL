@@ -89,6 +89,24 @@ private:
         return device_memory_size_b() / (1 << 20);
     }
 
+    inline bool is_power_of_two(size_t x) const
+    {
+        return x && !(x & (x - 1));
+    }
+
+
+    inline size_t most_significant_bit(size_t n)
+    {
+        n |= n >>  1;
+        n |= n >>  2;
+        n |= n >>  4;
+        n |= n >>  8;
+        n |= n >> 16;
+        n |= n >> 32;
+        n = n + 1;
+        return (n >> 1);
+    }
+
     std::string kernelOptionsStr()
     {
         std::stringstream optionsBuilder;
@@ -313,7 +331,7 @@ public:
           size_t iterations,
           size_t every,
           std::string vtk_path = "",
-          size_t lws = 32,
+          size_t work_group_size = 32,
           size_t stride = 32,
           bool optimize = true,
           std::string dump_path = "",
@@ -325,7 +343,6 @@ public:
           iterations(iterations),
           every(every),
           vtk_path(vtk_path),
-          lws(lws, 1, 1),
           gws(dim, dim, dim),
           stride(stride),
           optimize(optimize),
@@ -334,6 +351,16 @@ public:
           dump_f(dump_f)
     {
         dump_data = (every != 0);
+
+        if (work_group_size > dim) {
+            lws = cl::NDRange(dim, 1, 1);
+            std::cout << "work_group_size is set to " << dim << std::endl;
+        }
+
+        if (!is_power_of_two(stride)) {
+            stride = most_significant_bit(stride);
+            std::cout << "stride is rounded to the previous power of 2: " << stride << std::endl;
+        }
     }
 
     // Create all objects needed to perform the simulation, excluding host

@@ -30,13 +30,12 @@
 #endif
 
 
-#define SCRATCH_METHOD          (1 << 0)
-#define SAILFISH_METHOD         (1 << 1)
+#define SCRATCH_METHOD                  (1 << 0)
+#define SAILFISH_METHOD                 (1 << 1)
+#define SIMULATION_METHOD               SCRATCH_METHOD
 
-#define FLOAT_ORDER_SAILFISH    1
-#define BOUNCEBACK_METHOD       SAILFISH_METHOD
-#define COLLIDE_METHOD          SAILFISH_METHOD
-#define STREAMING_METHOD        SAILFISH_METHOD
+#define CALCULATION_ORDER_SAILFISH      1
+#define STREAMING_METHOD                SCRATCH_METHOD
 
 
 #ifdef FP_DOUBLE
@@ -44,21 +43,21 @@
 #pragma OPENCL EXTENSION cl_amd_fp64 : enable
 #endif
 
-#define INITIAL_DENSITY         1.0
-#define INITIAL_VELOCITY_X      VELOCITY
-#define INITIAL_VELOCITY_Y      0.0
-#define INITIAL_VELOCITY_Z      0.0
+#define INITIAL_DENSITY                 1.0
+#define INITIAL_VELOCITY_X              VELOCITY
+#define INITIAL_VELOCITY_Y              0.0
+#define INITIAL_VELOCITY_Z              0.0
 
-#define TAU                     ((3.0 * VISCOSITY) + 0.5)
-#define INV_TAU                 (1.0 / TAU) // 1.89861401177140698415
+#define TAU                             ((3.0 * VISCOSITY) + 0.5)
+#define INV_TAU                         (1.0 / TAU) // 1.89861401177140698415
 
-#define IDxyzq(id, q)           (((id) / STRIDE) * Q + q) * STRIDE + ((id) & (STRIDE - 1))
-#define IDXYZQ(x, y, z, q)      (((((x) + ((y) * DIM) + ((z) * DIM * DIM)) / STRIDE) * Q + q) * STRIDE + (((x) + ((y) * DIM) + ((z) * DIM * DIM)) & (STRIDE - 1)))
+#define IDxyzq(id, q)                   (((id) / STRIDE) * Q + q) * STRIDE + ((id) & (STRIDE - 1))
+#define IDXYZQ(x, y, z, q)              (((((x) + ((y) * DIM) + ((z) * DIM * DIM)) / STRIDE) * Q + q) * STRIDE + (((x) + ((y) * DIM) + ((z) * DIM * DIM)) & (STRIDE - 1)))
 
-#define IDxyz(x, y, z)          ((x) + ((y) * (DIM)) + ((z) * (DIM) * (DIM)))
-#define UX(id)                  u[(id) * 3 + 0]
-#define UY(id)                  u[(id) * 3 + 1]
-#define UZ(id)                  u[(id) * 3 + 2]
+#define IDxyz(x, y, z)                  ((x) + ((y) * (DIM)) + ((z) * (DIM) * (DIM)))
+#define UX(id)                          u[(id) * 3 + 0]
+#define UY(id)                          u[(id) * 3 + 1]
+#define UZ(id)                          u[(id) * 3 + 2]
 
 
 // MACRO UNROLL of 19.
@@ -263,6 +262,7 @@ inline real_t compute_bgk(const real_t f, const real_t f_eq)
 }
 
 
+#if (SIMULATION_METHOD == SCRATCH_METHOD)
 __kernel
 void initialize(__global real_t * restrict f_stream,
                 __global real_t * restrict f_collide,
@@ -278,7 +278,6 @@ void initialize(__global real_t * restrict f_stream,
 
     map[id] = cell_type;
 
-
     const real_t rho = INITIAL_DENSITY;
     const real_t ux  = (is_moving_init(cell_type) ? INITIAL_VELOCITY_X : 0.0);
     const real_t uy  = (is_moving_init(cell_type) ? INITIAL_VELOCITY_Y : 0.0);
@@ -290,7 +289,6 @@ void initialize(__global real_t * restrict f_stream,
     UZ(id)      = (is_store_macro(cell_type) ? uz : NAN);
 
 
-#if (COLLIDE_METHOD == SCRATCH_METHOD)
     real_t eu = 0.0;
     const real_t u2 = (ux * ux) + (uy * uy) + (uz * uz);
 #undef  UNROLL_X
@@ -298,28 +296,6 @@ void initialize(__global real_t * restrict f_stream,
     eu = (ux * E##i##_X) + (uy * E##i##_Y) + (uz * E##i##_Z);                                 \
     const real_t f##i = (rho * OMEGA_##i) * (1.0 + (3.0 * eu) + (4.5 * eu * eu) - (1.5 * u2));
     UNROLL_19();
-
-#elif (COLLIDE_METHOD == SAILFISH_METHOD)
-    const real_t f0  = (OMEGA_0  * rho) * (-1.5 * (ux * ux) - 1.5 * (uy * uy) - 1.5 * (uz * uz))                        + (OMEGA_0  * rho);
-    const real_t f1  = (OMEGA_1  * rho) * (ux * (3.0 * ux + 3.0) - 1.5 * (uy * uy) - 1.5 * (uz * uz))                   + (OMEGA_1  * rho);
-    const real_t f2  = (OMEGA_2  * rho) * (-1.5 * (ux * ux) + uy * (3.0 * uy + 3.0) - 1.5 * (uz * uz))                  + (OMEGA_2  * rho);
-    const real_t f3  = (OMEGA_3  * rho) * (ux * (3.0 * ux - 3.0) - 1.5 * (uy * uy) - 1.5 * (uz * uz))                   + (OMEGA_3  * rho);
-    const real_t f4  = (OMEGA_4  * rho) * (-1.5 * (ux * ux) + uy * (3.0 * uy - 3.0) - 1.5 * (uz * uz))                  + (OMEGA_4  * rho);
-    const real_t f5  = (OMEGA_5  * rho) * (-1.5 * (ux * ux) - 1.5 * (uy * uy) + uz * (3.0 * uz - 3.0))                  + (OMEGA_5  * rho);
-    const real_t f6  = (OMEGA_6  * rho) * (-1.5 * (ux * ux) - 1.5 * (uy * uy) + uz * (3.0 * uz + 3.0))                  + (OMEGA_6  * rho);
-    const real_t f7  = (OMEGA_7  * rho) * (ux * (3.0 * ux + 9.0 * uy + 3.0) + uy * (3.0 * uy + 3.0) - 1.5 * (uz * uz))  + (OMEGA_7  * rho);
-    const real_t f8  = (OMEGA_8  * rho) * (ux * (3.0 * ux - 9.0 * uy - 3.0) + uy * (3.0 * uy + 3.0) - 1.5 * (uz * uz))  + (OMEGA_8  * rho);
-    const real_t f9  = (OMEGA_9  * rho) * (ux * (3.0 * ux + 9.0 * uy - 3.0) + uy * (3.0 * uy - 3.0) - 1.5 * (uz * uz))  + (OMEGA_9  * rho);
-    const real_t f10 = (OMEGA_10 * rho) * (ux * (3.0 * ux - 9.0 * uy + 3.0) + uy * (3.0 * uy - 3.0) - 1.5 * (uz * uz))  + (OMEGA_10 * rho);
-    const real_t f11 = (OMEGA_11 * rho) * (ux * (3.0 * ux - 9.0 * uz + 3.0) - 1.5 * (uy * uy) + uz * (3.0 * uz - 3.0))  + (OMEGA_11 * rho);
-    const real_t f12 = (OMEGA_12 * rho) * (-1.5 * (ux * ux) + uy * (3.0 * uy - 9.0 * uz + 3.0) + uz * (3.0 * uz - 3.0)) + (OMEGA_12 * rho);
-    const real_t f13 = (OMEGA_13 * rho) * (ux * (3.0 * ux + 9.0 * uz - 3.0) - 1.5 * (uy * uy) + uz * (3.0 * uz - 3.0))  + (OMEGA_13 * rho);
-    const real_t f14 = (OMEGA_14 * rho) * (-1.5 * (ux * ux) + uy * (3.0 * uy + 9.0 * uz - 3.0) + uz * (3.0 * uz - 3.0)) + (OMEGA_14 * rho);
-    const real_t f15 = (OMEGA_15 * rho) * (ux * (3.0 * ux + 9.0 * uz + 3.0) - 1.5 * (uy * uy) + uz * (3.0 * uz + 3.0))  + (OMEGA_15 * rho);
-    const real_t f16 = (OMEGA_16 * rho) * (-1.5 * (ux * ux) + uy * (3.0 * uy + 9.0 * uz + 3.0) + uz * (3.0 * uz + 3.0)) + (OMEGA_16 * rho);
-    const real_t f17 = (OMEGA_17 * rho) * (ux * (3.0 * ux - 9.0 * uz - 3.0) - 1.5 * (uy * uy) + uz * (3.0 * uz + 3.0))  + (OMEGA_17 * rho);
-    const real_t f18 = (OMEGA_18 * rho) * (-1.5 * (ux * ux) + uy * (3.0 * uy - 9.0 * uz - 3.0) + uz * (3.0 * uz + 3.0)) + (OMEGA_18 * rho);
-#endif
 
 #undef  UNROLL_X
 #define UNROLL_X(i) f_collide[IDxyzq(id, i)] = (is_wall(cell_type) ? NAN : f##i);
@@ -357,7 +333,7 @@ void compute(__global real_t * restrict f_stream,
     }
 
     /***   Compute Macro quantities (rho & u)   ***/
-#if FLOAT_ORDER_SAILFISH
+#if CALCULATION_ORDER_SAILFISH
     const real_t rho = f5 + f11 + f12 + f14 + f13 + f0 + f1 + f2 + f7 + f8 + f4 + f10 + f9 + f6 + f15 + f16 + f18 + f17 + f3;
 #else                   
     const real_t rho = f0 + f1 + f2 + f3 + f4 + f5 + f6 + f7 + f8 + f9 + f10 + f11 + f12 + f13 + f14 + f15 + f16 + f17 + f18;
@@ -373,7 +349,7 @@ void compute(__global real_t * restrict f_stream,
         uz = INITIAL_VELOCITY_Z;
     } else {
 
-#if FLOAT_ORDER_SAILFISH
+#if CALCULATION_ORDER_SAILFISH
             //fBE - fBW +  fE + fNE - fNW + fSE - fSW + fTE - fTW -  fW) / zero;
         ux = (f11 - f13 +  f1 +  f7 -  f8 + f10 -  f9 + f15 - f17 -  f3) / rho;
            //(fBN - fBS +  fN + fNE + fNW -  fS - fSE - fSW + fTN - fTS) / zero;
@@ -388,7 +364,7 @@ void compute(__global real_t * restrict f_stream,
     }
 
     /***   Store macro quantities (rho & u)   ***/
-    if (is_store_macro(cell_type)) {
+    if (is_store_macro(cell_type)) {    // TODO: avoid to store macro quantities if not needed
         density[id] = rho;
         UX(id) = ux;
         UY(id) = uy;
@@ -399,7 +375,6 @@ void compute(__global real_t * restrict f_stream,
     /***   Boundary Conditions   ***/
     if (is_moving(cell_type)) {
 
-#if (COLLIDE_METHOD == SCRATCH_METHOD)
         real_t eu = 0.0;
         const real_t u2 = (ux * ux) + (uy * uy) + (uz * uz);
 
@@ -408,33 +383,9 @@ void compute(__global real_t * restrict f_stream,
         eu = (ux * E##i##_X) + (uy * E##i##_Y) + (uz * E##i##_Z);                    \
         f##i = (rho * OMEGA_##i) * (1.0 + (3.0 * eu) + (4.5 * eu * eu) - (1.5 * u2));
         UNROLL_19();
-#endif
-
-#if (COLLIDE_METHOD == SAILFISH_METHOD)
-        f0  = (OMEGA_0  * rho) * (-1.5 * (ux * ux) - 1.5 * (uy * uy) - 1.5 * (uz * uz))                        + (OMEGA_0  * rho);
-        f1  = (OMEGA_1  * rho) * (ux * (3.0 * ux + 3.0) - 1.5 * (uy * uy) - 1.5 * (uz * uz))                   + (OMEGA_1  * rho);
-        f2  = (OMEGA_2  * rho) * (-1.5 * (ux * ux) + uy * (3.0 * uy + 3.0) - 1.5 * (uz * uz))                  + (OMEGA_2  * rho);
-        f3  = (OMEGA_3  * rho) * (ux * (3.0 * ux - 3.0) - 1.5 * (uy * uy) - 1.5 * (uz * uz))                   + (OMEGA_3  * rho);
-        f4  = (OMEGA_4  * rho) * (-1.5 * (ux * ux) + uy * (3.0 * uy - 3.0) - 1.5 * (uz * uz))                  + (OMEGA_4  * rho);
-        f5  = (OMEGA_5  * rho) * (-1.5 * (ux * ux) - 1.5 * (uy * uy) + uz * (3.0 * uz - 3.0))                  + (OMEGA_5  * rho);
-        f6  = (OMEGA_6  * rho) * (-1.5 * (ux * ux) - 1.5 * (uy * uy) + uz * (3.0 * uz + 3.0))                  + (OMEGA_6  * rho);
-        f7  = (OMEGA_7  * rho) * (ux * (3.0 * ux + 9.0 * uy + 3.0) + uy * (3.0 * uy + 3.0) - 1.5 * (uz * uz))  + (OMEGA_7  * rho);
-        f8  = (OMEGA_8  * rho) * (ux * (3.0 * ux - 9.0 * uy - 3.0) + uy * (3.0 * uy + 3.0) - 1.5 * (uz * uz))  + (OMEGA_8  * rho);
-        f9  = (OMEGA_9  * rho) * (ux * (3.0 * ux + 9.0 * uy - 3.0) + uy * (3.0 * uy - 3.0) - 1.5 * (uz * uz))  + (OMEGA_9  * rho);
-        f10 = (OMEGA_10 * rho) * (ux * (3.0 * ux - 9.0 * uy + 3.0) + uy * (3.0 * uy - 3.0) - 1.5 * (uz * uz))  + (OMEGA_10 * rho);
-        f11 = (OMEGA_11 * rho) * (ux * (3.0 * ux - 9.0 * uz + 3.0) - 1.5 * (uy * uy) + uz * (3.0 * uz - 3.0))  + (OMEGA_11 * rho);
-        f12 = (OMEGA_12 * rho) * (-1.5 * (ux * ux) + uy * (3.0 * uy - 9.0 * uz + 3.0) + uz * (3.0 * uz - 3.0)) + (OMEGA_12 * rho);
-        f13 = (OMEGA_13 * rho) * (ux * (3.0 * ux + 9.0 * uz - 3.0) - 1.5 * (uy * uy) + uz * (3.0 * uz - 3.0))  + (OMEGA_13 * rho);
-        f14 = (OMEGA_14 * rho) * (-1.5 * (ux * ux) + uy * (3.0 * uy + 9.0 * uz - 3.0) + uz * (3.0 * uz - 3.0)) + (OMEGA_14 * rho);
-        f15 = (OMEGA_15 * rho) * (ux * (3.0 * ux + 9.0 * uz + 3.0) - 1.5 * (uy * uy) + uz * (3.0 * uz + 3.0))  + (OMEGA_15 * rho);
-        f16 = (OMEGA_16 * rho) * (-1.5 * (ux * ux) + uy * (3.0 * uy + 9.0 * uz + 3.0) + uz * (3.0 * uz + 3.0)) + (OMEGA_16 * rho);
-        f17 = (OMEGA_17 * rho) * (ux * (3.0 * ux - 9.0 * uz - 3.0) - 1.5 * (uy * uy) + uz * (3.0 * uz + 3.0))  + (OMEGA_17 * rho);
-        f18 = (OMEGA_18 * rho) * (-1.5 * (ux * ux) + uy * (3.0 * uy - 9.0 * uz - 3.0) + uz * (3.0 * uz + 3.0)) + (OMEGA_18 * rho);
-#endif
 
     } else if (is_bounceback(cell_type)) {
 
-#if (BOUNCEBACK_METHOD == SCRATCH_METHOD)
 #undef  UNROLL_X
 #define UNROLL_X(i)                 \
         {                           \
@@ -443,52 +394,12 @@ void compute(__global real_t * restrict f_stream,
             F_S(i) = tmp;           \
         }
         UNROLL_HALF_19();
-#endif
-
-#if (BOUNCEBACK_METHOD == SAILFISH_METHOD)
-        real_t tmp = f1;
-        f1 = f3;
-        f3 = tmp;
-
-        tmp = f2;
-        f2 = f4;
-        f4 = tmp;
-
-        tmp = f6;
-        f6 = f5;
-        f5 = tmp;
-
-        tmp = f7;
-        f7 = f9;
-        f9 = tmp;
-
-        tmp = f8;
-        f8 = f10;
-        f10 = tmp;
-        
-        tmp = f16;
-        f16 = f14;
-        f14 = tmp;
-
-        tmp = f18;
-        f18 = f12;
-        f12 = tmp;
-
-        tmp = f15;
-        f15 = f13;
-        f13 = tmp;
-
-        tmp = f17;
-        f17 = f11;
-        f11 = tmp;
-#endif
     }
 
 
     /***   Collision   ***/
     if (is_collision(cell_type)) {
 
-#if (COLLIDE_METHOD == SCRATCH_METHOD)
         real_t eu = 0.0;
         const real_t u2 = (ux * ux) + (uy * uy) + (uz * uz);
 #undef  UNROLL_X
@@ -496,29 +407,6 @@ void compute(__global real_t * restrict f_stream,
         eu = (ux * E##i##_X) + (uy * E##i##_Y) + (uz * E##i##_Z);                                    \
         const real_t fnew##i = (rho * OMEGA_##i) * (1.0 + (3.0 * eu) + (4.5 * eu * eu) - (1.5 * u2));
         UNROLL_19();
-#endif
-
-#if (COLLIDE_METHOD == SAILFISH_METHOD)
-        const real_t fnew0  = (OMEGA_0  * rho) * (-1.5 * (ux * ux) - 1.5 * (uy * uy) - 1.5 * (uz * uz))                        + (OMEGA_0  * rho);
-        const real_t fnew1  = (OMEGA_1  * rho) * (ux * (3.0 * ux + 3.0) - 1.5 * (uy * uy) - 1.5 * (uz * uz))                   + (OMEGA_1  * rho);
-        const real_t fnew2  = (OMEGA_2  * rho) * (-1.5 * (ux * ux) + uy * (3.0 * uy + 3.0) - 1.5 * (uz * uz))                  + (OMEGA_2  * rho);
-        const real_t fnew3  = (OMEGA_3  * rho) * (ux * (3.0 * ux - 3.0) - 1.5 * (uy * uy) - 1.5 * (uz * uz))                   + (OMEGA_3  * rho);
-        const real_t fnew4  = (OMEGA_4  * rho) * (-1.5 * (ux * ux) + uy * (3.0 * uy - 3.0) - 1.5 * (uz * uz))                  + (OMEGA_4  * rho);
-        const real_t fnew5  = (OMEGA_5  * rho) * (-1.5 * (ux * ux) - 1.5 * (uy * uy) + uz * (3.0 * uz - 3.0))                  + (OMEGA_5  * rho);
-        const real_t fnew6  = (OMEGA_6  * rho) * (-1.5 * (ux * ux) - 1.5 * (uy * uy) + uz * (3.0 * uz + 3.0))                  + (OMEGA_6  * rho);
-        const real_t fnew7  = (OMEGA_7  * rho) * (ux * (3.0 * ux + 9.0 * uy + 3.0) + uy * (3.0 * uy + 3.0) - 1.5 * (uz * uz))  + (OMEGA_7  * rho);
-        const real_t fnew8  = (OMEGA_8  * rho) * (ux * (3.0 * ux - 9.0 * uy - 3.0) + uy * (3.0 * uy + 3.0) - 1.5 * (uz * uz))  + (OMEGA_8  * rho);
-        const real_t fnew9  = (OMEGA_9  * rho) * (ux * (3.0 * ux + 9.0 * uy - 3.0) + uy * (3.0 * uy - 3.0) - 1.5 * (uz * uz))  + (OMEGA_9  * rho);
-        const real_t fnew10 = (OMEGA_10 * rho) * (ux * (3.0 * ux - 9.0 * uy + 3.0) + uy * (3.0 * uy - 3.0) - 1.5 * (uz * uz))  + (OMEGA_10 * rho);
-        const real_t fnew11 = (OMEGA_11 * rho) * (ux * (3.0 * ux - 9.0 * uz + 3.0) - 1.5 * (uy * uy) + uz * (3.0 * uz - 3.0))  + (OMEGA_11 * rho);
-        const real_t fnew12 = (OMEGA_12 * rho) * (-1.5 * (ux * ux) + uy * (3.0 * uy - 9.0 * uz + 3.0) + uz * (3.0 * uz - 3.0)) + (OMEGA_12 * rho);
-        const real_t fnew13 = (OMEGA_13 * rho) * (ux * (3.0 * ux + 9.0 * uz - 3.0) - 1.5 * (uy * uy) + uz * (3.0 * uz - 3.0))  + (OMEGA_13 * rho);
-        const real_t fnew14 = (OMEGA_14 * rho) * (-1.5 * (ux * ux) + uy * (3.0 * uy + 9.0 * uz - 3.0) + uz * (3.0 * uz - 3.0)) + (OMEGA_14 * rho);
-        const real_t fnew15 = (OMEGA_15 * rho) * (ux * (3.0 * ux + 9.0 * uz + 3.0) - 1.5 * (uy * uy) + uz * (3.0 * uz + 3.0))  + (OMEGA_15 * rho);
-        const real_t fnew16 = (OMEGA_16 * rho) * (-1.5 * (ux * ux) + uy * (3.0 * uy + 9.0 * uz + 3.0) + uz * (3.0 * uz + 3.0)) + (OMEGA_16 * rho);
-        const real_t fnew17 = (OMEGA_17 * rho) * (ux * (3.0 * ux - 9.0 * uz - 3.0) - 1.5 * (uy * uy) + uz * (3.0 * uz + 3.0))  + (OMEGA_17 * rho);
-        const real_t fnew18 = (OMEGA_18 * rho) * (-1.5 * (ux * ux) + uy * (3.0 * uy - 9.0 * uz - 3.0) + uz * (3.0 * uz + 3.0)) + (OMEGA_18 * rho);
-#endif
 
 #undef  UNROLL_X
 #define UNROLL_X(i) f##i = compute_bgk(f##i, fnew##i);
@@ -535,8 +423,7 @@ void compute(__global real_t * restrict f_stream,
         const int ny = y + E##i##_Y;                                            \
         const int nz = z + E##i##_Z;                                            \
         if (0 <= nx && nx < DIM && 0 <= ny && ny < DIM && 0 <= nz && nz < DIM) {\
-            const int index = IDxyz(nx, ny, nz);                                \
-            f_stream[IDxyzq(index, i)] = f##i;                                  \
+            f_stream[IDXYZQ(nx, ny, nz, i)] = f##i;                             \
         }                                                                       \
     }
     UNROLL_19();
@@ -554,7 +441,8 @@ void compute(__global real_t * restrict f_stream,
     if (is_corner(cell_type)) {
         propagation_only = true;
     }
-    //TODO: find the optimal value of elements in local memory for each f
+// TODO: reaorder storing of f_stream q-indexes
+// TODO: remove ghost nodes to get better performance and small code
     __local real_t  _f1[LWS];
     __local real_t  _f7[LWS];
     __local real_t _f10[LWS];
@@ -656,3 +544,313 @@ void compute(__global real_t * restrict f_stream,
     }
 #endif
 }
+
+#else
+
+__kernel
+void initialize(__global real_t * restrict f_stream,
+                __global real_t * restrict f_collide,
+                __global real_t * restrict density,
+                __global real_t * restrict u,
+                __global int * restrict map)
+{
+    const int x = get_global_id(0);
+    const int y = get_global_id(1);
+    const int z = get_global_id(2);
+    const int id = IDxyz(x, y, z);
+    const int cell_type = get_cell_type(x, y, z);
+
+    map[id] = cell_type;
+
+
+    const real_t rho = INITIAL_DENSITY;
+    const real_t ux  = (is_moving_init(cell_type) ? INITIAL_VELOCITY_X : 0.0);
+    const real_t uy  = (is_moving_init(cell_type) ? INITIAL_VELOCITY_Y : 0.0);
+    const real_t uz  = (is_moving_init(cell_type) ? INITIAL_VELOCITY_Z : 0.0);
+
+    density[id] = (is_store_macro(cell_type) ? rho : NAN);
+    UX(id)      = (is_store_macro(cell_type) ? ux : NAN);
+    UY(id)      = (is_store_macro(cell_type) ? uy : NAN);
+    UZ(id)      = (is_store_macro(cell_type) ? uz : NAN);
+
+    const real_t f0  = (OMEGA_0  * rho) * (-1.5 * (ux * ux) - 1.5 * (uy * uy) - 1.5 * (uz * uz))                        + (OMEGA_0  * rho);
+    const real_t f1  = (OMEGA_1  * rho) * (ux * (3.0 * ux + 3.0) - 1.5 * (uy * uy) - 1.5 * (uz * uz))                   + (OMEGA_1  * rho);
+    const real_t f2  = (OMEGA_2  * rho) * (-1.5 * (ux * ux) + uy * (3.0 * uy + 3.0) - 1.5 * (uz * uz))                  + (OMEGA_2  * rho);
+    const real_t f3  = (OMEGA_3  * rho) * (ux * (3.0 * ux - 3.0) - 1.5 * (uy * uy) - 1.5 * (uz * uz))                   + (OMEGA_3  * rho);
+    const real_t f4  = (OMEGA_4  * rho) * (-1.5 * (ux * ux) + uy * (3.0 * uy - 3.0) - 1.5 * (uz * uz))                  + (OMEGA_4  * rho);
+    const real_t f5  = (OMEGA_5  * rho) * (-1.5 * (ux * ux) - 1.5 * (uy * uy) + uz * (3.0 * uz - 3.0))                  + (OMEGA_5  * rho);
+    const real_t f6  = (OMEGA_6  * rho) * (-1.5 * (ux * ux) - 1.5 * (uy * uy) + uz * (3.0 * uz + 3.0))                  + (OMEGA_6  * rho);
+    const real_t f7  = (OMEGA_7  * rho) * (ux * (3.0 * ux + 9.0 * uy + 3.0) + uy * (3.0 * uy + 3.0) - 1.5 * (uz * uz))  + (OMEGA_7  * rho);
+    const real_t f8  = (OMEGA_8  * rho) * (ux * (3.0 * ux - 9.0 * uy - 3.0) + uy * (3.0 * uy + 3.0) - 1.5 * (uz * uz))  + (OMEGA_8  * rho);
+    const real_t f9  = (OMEGA_9  * rho) * (ux * (3.0 * ux + 9.0 * uy - 3.0) + uy * (3.0 * uy - 3.0) - 1.5 * (uz * uz))  + (OMEGA_9  * rho);
+    const real_t f10 = (OMEGA_10 * rho) * (ux * (3.0 * ux - 9.0 * uy + 3.0) + uy * (3.0 * uy - 3.0) - 1.5 * (uz * uz))  + (OMEGA_10 * rho);
+    const real_t f11 = (OMEGA_11 * rho) * (ux * (3.0 * ux - 9.0 * uz + 3.0) - 1.5 * (uy * uy) + uz * (3.0 * uz - 3.0))  + (OMEGA_11 * rho);
+    const real_t f12 = (OMEGA_12 * rho) * (-1.5 * (ux * ux) + uy * (3.0 * uy - 9.0 * uz + 3.0) + uz * (3.0 * uz - 3.0)) + (OMEGA_12 * rho);
+    const real_t f13 = (OMEGA_13 * rho) * (ux * (3.0 * ux + 9.0 * uz - 3.0) - 1.5 * (uy * uy) + uz * (3.0 * uz - 3.0))  + (OMEGA_13 * rho);
+    const real_t f14 = (OMEGA_14 * rho) * (-1.5 * (ux * ux) + uy * (3.0 * uy + 9.0 * uz - 3.0) + uz * (3.0 * uz - 3.0)) + (OMEGA_14 * rho);
+    const real_t f15 = (OMEGA_15 * rho) * (ux * (3.0 * ux + 9.0 * uz + 3.0) - 1.5 * (uy * uy) + uz * (3.0 * uz + 3.0))  + (OMEGA_15 * rho);
+    const real_t f16 = (OMEGA_16 * rho) * (-1.5 * (ux * ux) + uy * (3.0 * uy + 9.0 * uz + 3.0) + uz * (3.0 * uz + 3.0)) + (OMEGA_16 * rho);
+    const real_t f17 = (OMEGA_17 * rho) * (ux * (3.0 * ux - 9.0 * uz - 3.0) - 1.5 * (uy * uy) + uz * (3.0 * uz + 3.0))  + (OMEGA_17 * rho);
+    const real_t f18 = (OMEGA_18 * rho) * (-1.5 * (ux * ux) + uy * (3.0 * uy - 9.0 * uz - 3.0) + uz * (3.0 * uz + 3.0)) + (OMEGA_18 * rho);
+
+#undef  UNROLL_X
+#define UNROLL_X(i) f_collide[IDxyzq(id, i)] = (is_wall(cell_type) ? NAN : f##i);
+    UNROLL_19();
+
+#undef  UNROLL_X
+#define UNROLL_X(i) f_stream[IDxyzq(id, i)] = (is_wall(cell_type) ? NAN : f##i);
+    UNROLL_19();
+}
+
+
+__kernel
+void compute(__global real_t * restrict f_stream,
+             __global const real_t * restrict f_collide,
+             __global real_t * restrict density,
+             __global real_t * restrict u,
+             __global const int * restrict map)
+{
+    const int x = get_global_id(0);
+    const int y = get_global_id(1);
+    const int z = get_global_id(2);
+    const int id = IDxyz(x, y, z);
+    const int cell_type = map[id];
+
+#undef  UNROLL_X
+#define UNROLL_X(i) real_t f##i = f_collide[IDxyzq(id, i)];
+    UNROLL_19();
+
+    if (is_moving(cell_type)) {
+        f5  = F_S( 5);
+        f11 = F_S(11);
+        f12 = F_S(12);
+        f13 = F_S(13);
+        f14 = F_S(14);
+    }
+
+    /***   Compute Macro quantities (rho & u)   ***/
+    const real_t rho = f5 + f11 + f12 + f14 + f13 + f0 + f1 + f2 + f7 + f8 + f4 + f10 + f9 + f6 + f15 + f16 + f18 + f17 + f3;
+
+    real_t ux = NAN;
+    real_t uy = NAN;
+    real_t uz = NAN;
+
+    if (is_moving(cell_type)) {
+        ux = INITIAL_VELOCITY_X;
+        uy = INITIAL_VELOCITY_Y;
+        uz = INITIAL_VELOCITY_Z;
+    } else {
+        ux = (f11 - f13 +  f1 +  f7 -  f8 + f10 -  f9 + f15 - f17 -  f3) / rho;
+        uy = (f12 - f14 +  f2 +  f7 +  f8 -  f4 - f10 -  f9 + f16 - f18) / rho;
+        uz = (-f5 - f11 - f12 - f14 - f13  + f6 + f15 + f16 + f18 + f17) / rho;
+    }
+
+    /***   Store macro quantities (rho & u)   ***/
+    if (is_store_macro(cell_type)) {
+        density[id] = rho;
+        UX(id) = ux;
+        UY(id) = uy;
+        UZ(id) = uz;
+    }
+
+
+    /***   Boundary Conditions   ***/
+    if (is_moving(cell_type)) {
+        f0  = (OMEGA_0  * rho) * (-1.5 * (ux * ux) - 1.5 * (uy * uy) - 1.5 * (uz * uz))                        + (OMEGA_0  * rho);
+        f1  = (OMEGA_1  * rho) * (ux * (3.0 * ux + 3.0) - 1.5 * (uy * uy) - 1.5 * (uz * uz))                   + (OMEGA_1  * rho);
+        f2  = (OMEGA_2  * rho) * (-1.5 * (ux * ux) + uy * (3.0 * uy + 3.0) - 1.5 * (uz * uz))                  + (OMEGA_2  * rho);
+        f3  = (OMEGA_3  * rho) * (ux * (3.0 * ux - 3.0) - 1.5 * (uy * uy) - 1.5 * (uz * uz))                   + (OMEGA_3  * rho);
+        f4  = (OMEGA_4  * rho) * (-1.5 * (ux * ux) + uy * (3.0 * uy - 3.0) - 1.5 * (uz * uz))                  + (OMEGA_4  * rho);
+        f5  = (OMEGA_5  * rho) * (-1.5 * (ux * ux) - 1.5 * (uy * uy) + uz * (3.0 * uz - 3.0))                  + (OMEGA_5  * rho);
+        f6  = (OMEGA_6  * rho) * (-1.5 * (ux * ux) - 1.5 * (uy * uy) + uz * (3.0 * uz + 3.0))                  + (OMEGA_6  * rho);
+        f7  = (OMEGA_7  * rho) * (ux * (3.0 * ux + 9.0 * uy + 3.0) + uy * (3.0 * uy + 3.0) - 1.5 * (uz * uz))  + (OMEGA_7  * rho);
+        f8  = (OMEGA_8  * rho) * (ux * (3.0 * ux - 9.0 * uy - 3.0) + uy * (3.0 * uy + 3.0) - 1.5 * (uz * uz))  + (OMEGA_8  * rho);
+        f9  = (OMEGA_9  * rho) * (ux * (3.0 * ux + 9.0 * uy - 3.0) + uy * (3.0 * uy - 3.0) - 1.5 * (uz * uz))  + (OMEGA_9  * rho);
+        f10 = (OMEGA_10 * rho) * (ux * (3.0 * ux - 9.0 * uy + 3.0) + uy * (3.0 * uy - 3.0) - 1.5 * (uz * uz))  + (OMEGA_10 * rho);
+        f11 = (OMEGA_11 * rho) * (ux * (3.0 * ux - 9.0 * uz + 3.0) - 1.5 * (uy * uy) + uz * (3.0 * uz - 3.0))  + (OMEGA_11 * rho);
+        f12 = (OMEGA_12 * rho) * (-1.5 * (ux * ux) + uy * (3.0 * uy - 9.0 * uz + 3.0) + uz * (3.0 * uz - 3.0)) + (OMEGA_12 * rho);
+        f13 = (OMEGA_13 * rho) * (ux * (3.0 * ux + 9.0 * uz - 3.0) - 1.5 * (uy * uy) + uz * (3.0 * uz - 3.0))  + (OMEGA_13 * rho);
+        f14 = (OMEGA_14 * rho) * (-1.5 * (ux * ux) + uy * (3.0 * uy + 9.0 * uz - 3.0) + uz * (3.0 * uz - 3.0)) + (OMEGA_14 * rho);
+        f15 = (OMEGA_15 * rho) * (ux * (3.0 * ux + 9.0 * uz + 3.0) - 1.5 * (uy * uy) + uz * (3.0 * uz + 3.0))  + (OMEGA_15 * rho);
+        f16 = (OMEGA_16 * rho) * (-1.5 * (ux * ux) + uy * (3.0 * uy + 9.0 * uz + 3.0) + uz * (3.0 * uz + 3.0)) + (OMEGA_16 * rho);
+        f17 = (OMEGA_17 * rho) * (ux * (3.0 * ux - 9.0 * uz - 3.0) - 1.5 * (uy * uy) + uz * (3.0 * uz + 3.0))  + (OMEGA_17 * rho);
+        f18 = (OMEGA_18 * rho) * (-1.5 * (ux * ux) + uy * (3.0 * uy - 9.0 * uz - 3.0) + uz * (3.0 * uz + 3.0)) + (OMEGA_18 * rho);
+    } else if (is_bounceback(cell_type)) {
+        real_t tmp = f1;
+        f1 = f3;
+        f3 = tmp;
+
+        tmp = f2;
+        f2 = f4;
+        f4 = tmp;
+
+        tmp = f6;
+        f6 = f5;
+        f5 = tmp;
+
+        tmp = f7;
+        f7 = f9;
+        f9 = tmp;
+
+        tmp = f8;
+        f8 = f10;
+        f10 = tmp;
+        
+        tmp = f16;
+        f16 = f14;
+        f14 = tmp;
+
+        tmp = f18;
+        f18 = f12;
+        f12 = tmp;
+
+        tmp = f15;
+        f15 = f13;
+        f13 = tmp;
+
+        tmp = f17;
+        f17 = f11;
+        f11 = tmp;
+    }
+
+
+    /***   Collision   ***/
+    if (is_collision(cell_type)) {
+        const real_t fnew0  = (OMEGA_0  * rho) * (-1.5 * (ux * ux) - 1.5 * (uy * uy) - 1.5 * (uz * uz))                        + (OMEGA_0  * rho);
+        const real_t fnew1  = (OMEGA_1  * rho) * (ux * (3.0 * ux + 3.0) - 1.5 * (uy * uy) - 1.5 * (uz * uz))                   + (OMEGA_1  * rho);
+        const real_t fnew2  = (OMEGA_2  * rho) * (-1.5 * (ux * ux) + uy * (3.0 * uy + 3.0) - 1.5 * (uz * uz))                  + (OMEGA_2  * rho);
+        const real_t fnew3  = (OMEGA_3  * rho) * (ux * (3.0 * ux - 3.0) - 1.5 * (uy * uy) - 1.5 * (uz * uz))                   + (OMEGA_3  * rho);
+        const real_t fnew4  = (OMEGA_4  * rho) * (-1.5 * (ux * ux) + uy * (3.0 * uy - 3.0) - 1.5 * (uz * uz))                  + (OMEGA_4  * rho);
+        const real_t fnew5  = (OMEGA_5  * rho) * (-1.5 * (ux * ux) - 1.5 * (uy * uy) + uz * (3.0 * uz - 3.0))                  + (OMEGA_5  * rho);
+        const real_t fnew6  = (OMEGA_6  * rho) * (-1.5 * (ux * ux) - 1.5 * (uy * uy) + uz * (3.0 * uz + 3.0))                  + (OMEGA_6  * rho);
+        const real_t fnew7  = (OMEGA_7  * rho) * (ux * (3.0 * ux + 9.0 * uy + 3.0) + uy * (3.0 * uy + 3.0) - 1.5 * (uz * uz))  + (OMEGA_7  * rho);
+        const real_t fnew8  = (OMEGA_8  * rho) * (ux * (3.0 * ux - 9.0 * uy - 3.0) + uy * (3.0 * uy + 3.0) - 1.5 * (uz * uz))  + (OMEGA_8  * rho);
+        const real_t fnew9  = (OMEGA_9  * rho) * (ux * (3.0 * ux + 9.0 * uy - 3.0) + uy * (3.0 * uy - 3.0) - 1.5 * (uz * uz))  + (OMEGA_9  * rho);
+        const real_t fnew10 = (OMEGA_10 * rho) * (ux * (3.0 * ux - 9.0 * uy + 3.0) + uy * (3.0 * uy - 3.0) - 1.5 * (uz * uz))  + (OMEGA_10 * rho);
+        const real_t fnew11 = (OMEGA_11 * rho) * (ux * (3.0 * ux - 9.0 * uz + 3.0) - 1.5 * (uy * uy) + uz * (3.0 * uz - 3.0))  + (OMEGA_11 * rho);
+        const real_t fnew12 = (OMEGA_12 * rho) * (-1.5 * (ux * ux) + uy * (3.0 * uy - 9.0 * uz + 3.0) + uz * (3.0 * uz - 3.0)) + (OMEGA_12 * rho);
+        const real_t fnew13 = (OMEGA_13 * rho) * (ux * (3.0 * ux + 9.0 * uz - 3.0) - 1.5 * (uy * uy) + uz * (3.0 * uz - 3.0))  + (OMEGA_13 * rho);
+        const real_t fnew14 = (OMEGA_14 * rho) * (-1.5 * (ux * ux) + uy * (3.0 * uy + 9.0 * uz - 3.0) + uz * (3.0 * uz - 3.0)) + (OMEGA_14 * rho);
+        const real_t fnew15 = (OMEGA_15 * rho) * (ux * (3.0 * ux + 9.0 * uz + 3.0) - 1.5 * (uy * uy) + uz * (3.0 * uz + 3.0))  + (OMEGA_15 * rho);
+        const real_t fnew16 = (OMEGA_16 * rho) * (-1.5 * (ux * ux) + uy * (3.0 * uy + 9.0 * uz + 3.0) + uz * (3.0 * uz + 3.0)) + (OMEGA_16 * rho);
+        const real_t fnew17 = (OMEGA_17 * rho) * (ux * (3.0 * ux - 9.0 * uz - 3.0) - 1.5 * (uy * uy) + uz * (3.0 * uz + 3.0))  + (OMEGA_17 * rho);
+        const real_t fnew18 = (OMEGA_18 * rho) * (-1.5 * (ux * ux) + uy * (3.0 * uy - 9.0 * uz - 3.0) + uz * (3.0 * uz + 3.0)) + (OMEGA_18 * rho);
+
+#undef  UNROLL_X
+#define UNROLL_X(i) f##i = compute_bgk(f##i, fnew##i);
+        UNROLL_19();
+    }
+
+    const int lx = get_local_id(0);
+
+    bool alive = true;
+    if (is_wall(cell_type)) {
+        alive = false;
+    }
+
+    bool propagation_only = false;
+    if (is_corner(cell_type)) {
+        propagation_only = true;
+    }
+
+    __local real_t  _f1[LWS];
+    __local real_t  _f7[LWS];
+    __local real_t _f10[LWS];
+    __local real_t _f11[LWS];
+    __local real_t _f15[LWS];
+#define  _f3  _f1
+#define  _f8 _f10
+#define  _f9  _f7
+#define _f13 _f15
+#define _f17 _f11
+    _f1[lx] = -1.0;
+    barrier(CLK_LOCAL_MEM_FENCE);
+    if (!propagation_only && alive)
+    {
+        // Update the 0-th direction distribution
+        f_stream[IDxyzq(id, 0)] = f0;                                                   //  0  0  0
+        // Propagation in directions orthogonal to the X axis (global memory)
+        if (y < (DIM-1)) f_stream[IDXYZQ(   x, y+1,   z,  2)] = f2;                     //  0 +1  0
+        if (y > 0      ) f_stream[IDXYZQ(   x, y-1,   z,  4)] = f4;                     //  0 -1  0
+        if (z < (DIM-1)) f_stream[IDXYZQ(   x,   y, z+1,  6)] = f6;                     //  0  0 +1
+        if (z > 0      ) f_stream[IDXYZQ(   x,   y, z-1,  5)] = f5;                     //  0  0 -1
+
+        if (y < (DIM-1) && z < (DIM-1)) f_stream[IDXYZQ(   x, y+1, z+1, 16)] = f16;     //  0 +1 +1
+        if (y > 0       && z < (DIM-1)) f_stream[IDXYZQ(   x, y-1, z+1, 18)] = f18;     //  0 -1 +1
+        if (y < (DIM-1) && z > 0      ) f_stream[IDXYZQ(   x, y+1, z-1, 12)] = f12;     //  0 +1 -1
+        if (y > 0       && z > 0      ) f_stream[IDXYZQ(   x, y-1, z-1, 14)] = f14;     //  0 -1 -1
+
+        // E propagation in shared memory
+        if (x < (DIM-1)) {
+            // Note: propagation to ghost nodes is done directly in global memory as there
+            // are no threads running for the ghost nodes.
+            if (lx < (LWS-1) && x != (DIM-2)) {
+                 _f1[lx + 1] =  f1;
+                 _f7[lx + 1] =  f7;
+                _f10[lx + 1] = f10;
+                _f11[lx + 1] = f11;
+                _f15[lx + 1] = f15;
+                // E propagation in global memory (at right block boundary)
+            } else {
+                                 f_stream[IDXYZQ( x+1,   y,   z,  1)] =  f1;            // +1  0  0
+                if (y < (DIM-1)) f_stream[IDXYZQ( x+1, y+1,   z,  7)] =  f7;            // +1 +1  0
+                if (y > 0      ) f_stream[IDXYZQ( x+1, y-1,   z, 10)] = f10;            // +1 -1  0
+                if (z < (DIM-1)) f_stream[IDXYZQ( x+1,   y, z+1, 15)] = f15;            // +1  0 +1
+                if (z > 0      ) f_stream[IDXYZQ( x+1,   y, z-1, 11)] = f11;            // +1  0 -1
+            }
+        }
+    }
+
+    barrier(CLK_LOCAL_MEM_FENCE);
+    // Save locally propagated distributions into global memory.
+    // The leftmost thread is not updated in this block.
+    if (lx > 0 && x < DIM && !propagation_only && alive)
+    {
+        if (_f1[lx] != -1.0) {
+                             f_stream[IDXYZQ( x,   y,   z,  1)] =  _f1[lx];             //  0  0  0
+            if (y < (DIM-1)) f_stream[IDXYZQ( x, y+1,   z,  7)] =  _f7[lx];             //  0 +1  0
+            if (y > 0      ) f_stream[IDXYZQ( x, y-1,   z, 10)] = _f10[lx];             //  0 -1  0
+            if (z < (DIM-1)) f_stream[IDXYZQ( x,   y, z+1, 15)] = _f15[lx];             //  0  0 +1
+            if (z > 0      ) f_stream[IDXYZQ( x,   y, z-1, 11)] = _f11[lx];             //  0  0 -1
+        }
+    }
+
+    barrier(CLK_LOCAL_MEM_FENCE);
+    // Refill the propagation buffer with sentinel values.
+    _f1[lx] = -1.0;
+    barrier(CLK_LOCAL_MEM_FENCE);
+    if (!propagation_only && alive)
+    {
+        // W propagation in shared memory
+        // Note: propagation to ghost nodes is done directly in global memory as there
+        // are no threads running for the ghost nodes.
+        if ((lx > 1 || (lx > 0 && x >= LWS)) && !propagation_only) {
+             _f3[lx - 1] = f3;
+             _f8[lx - 1] = f8;
+             _f9[lx - 1] = f9;
+            _f13[lx - 1] = f13;
+            _f17[lx - 1] = f17;
+            // W propagation in global memory (at left block boundary)
+        } else if (x > 0) {
+                             f_stream[IDXYZQ( x-1,   y,   z,  3)] =  f3;                // -1  0  0
+            if (y < (DIM-1)) f_stream[IDXYZQ( x-1, y+1,   z,  8)] =  f8;                // -1 +1  0
+            if (y > 0      ) f_stream[IDXYZQ( x-1, y-1,   z,  9)] =  f9;                // -1 -1  0
+            if (z < (DIM-1)) f_stream[IDXYZQ( x-1,   y, z+1, 17)] = f17;                // -1  0 +1
+            if (z > 0      ) f_stream[IDXYZQ( x-1,   y, z-1, 13)] = f13;                // -1  0 -1
+        }
+    }
+
+    barrier(CLK_LOCAL_MEM_FENCE);
+    // The rightmost thread is not updated in this block.
+    if (lx < (LWS-1) && x < (DIM-1) && !propagation_only && alive)
+    {
+        if (_f1[lx] != -1.0) {
+                             f_stream[IDXYZQ( x,   y,   z,  3)] =  _f3[lx];             //  0  0  0
+            if (y < (DIM-1)) f_stream[IDXYZQ( x, y+1,   z,  8)] =  _f8[lx];             //  0 +1  0
+            if (y > 0      ) f_stream[IDXYZQ( x, y-1,   z,  9)] =  _f9[lx];             //  0 -1  0
+            if (z < (DIM-1)) f_stream[IDXYZQ( x,   y, z+1, 17)] = _f17[lx];             //  0  0 +1
+            if (z > 0      ) f_stream[IDXYZQ( x,   y, z-1, 13)] = _f13[lx];             //  0  0 -1
+        }
+    }
+}
+#endif

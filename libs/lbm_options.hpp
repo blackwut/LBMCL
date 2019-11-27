@@ -67,25 +67,6 @@ struct lbm_options {
     }
 
 
-    bool is_power_of_two(size_t x)
-    {
-        return x && !(x & (x - 1));
-    }
-
-
-    size_t most_significant_bit(size_t n)
-    {
-        n |= n >>  1;
-        n |= n >>  2;
-        n |= n >>  4;
-        n |= n >>  8;
-        n |= n >> 16;
-        n |= n >> 32;
-        n = n + 1;
-        return (n >> 1);
-    }
-
-
     void process_args(int argc, char * argv[])
     {
         opterr = 0;
@@ -211,16 +192,6 @@ struct lbm_options {
                     print_help();
                     break;
             }
-        }
-
-        if (lws > dim) {
-            lws = dim;
-            std::cout << "work_group_size is set to " << dim << std::endl;
-        }
-
-        if (!is_power_of_two(stride)) {
-            stride = most_significant_bit(stride);
-            std::cout << "stride is rounded to the previous power of 2 that is " << stride << std::endl;
         }
     }
 };

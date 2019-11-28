@@ -16,6 +16,13 @@
 #define VTK_PRECISION       16
 
 
+#define IDxyzqDIM(id, q, dim, stride)   (((id) / (stride)) * (dim) + q) * (stride) + ((id) & ((stride) - 1))
+#define IDxyzDIM(x, y, z, dim)          ((x) + ((y) * (dim)) + ((z) * (dim) * (dim)))
+#define IDux(id)                        ((id) * D + 0)
+#define IDuy(id)                        ((id) * D + 1)
+#define IDuz(id)                        ((id) * D + 2)
+
+
 template <typename T>
 class LBMCL
 {
@@ -89,22 +96,31 @@ private:
         return device_memory_size_b() / (1 << 20);
     }
 
+
     inline bool is_power_of_two(size_t x) const
     {
         return x && !(x & (x - 1));
     }
 
 
-    inline size_t most_significant_bit(size_t n)
+    inline size_t log2i(size_t x) const
     {
-        n |= n >>  1;
-        n |= n >>  2;
-        n |= n >>  4;
-        n |= n >>  8;
-        n |= n >> 16;
-        n |= n >> 32;
-        n = n + 1;
-        return (n >> 1);
+       size_t n;
+       for (n = 0; x > 1; x >>= 1, n++);
+       return n;
+    } 
+
+
+    inline size_t most_significant_bit(size_t x) const
+    {
+        x |= x >>  1;
+        x |= x >>  2;
+        x |= x >>  4;
+        x |= x >>  8;
+        x |= x >> 16;
+        x |= x >> 32;
+        x = x + 1;
+        return (x >> 1);
     }
 
     std::string kernelOptionsStr()
@@ -114,7 +130,8 @@ private:
         optionsBuilder << "-I. ";
         optionsBuilder << "-DDIM=" << dim << " ";
         optionsBuilder << "-DLWS=" << lws[0] << " ";
-        optionsBuilder << "-DSTRIDE=" << stride << " ";
+        optionsBuilder << "-DSTRIDE_DIV=" << log2i(stride) << " ";
+        optionsBuilder << "-DSTRIDE_MOD=" << (stride - 1) << " ";
         optionsBuilder << "-DVISCOSITY=" << viscosity << " ";
         optionsBuilder << "-DVELOCITY=" << velocity << " ";
 

@@ -328,7 +328,8 @@ void compute(__global real_t * restrict f_stream,
              __global const real_t * restrict f_collide,
              __global real_t * restrict density,
              __global real_t * restrict u,
-             __global const int * restrict map)
+             __global const int * restrict map,
+             const int update_macro)
 {
     const int x = get_global_id(0);
     const int y = get_global_id(1);
@@ -384,7 +385,7 @@ void compute(__global real_t * restrict f_stream,
     }
 
     /***   Store macro quantities (rho & u)   ***/
-    if (is_store_macro(cell_type)) {    // TODO: avoid to store macro quantities if not needed
+    if (update_macro && is_store_macro(cell_type)) {
         density[id] = rho;
         UX(id) = ux;
         UY(id) = uy;

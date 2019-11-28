@@ -414,7 +414,7 @@ public:
         }
 
         for (size_t iteration = 1; iteration <= iterations; ++iteration) {
-            const bool is_store_data = (dump_data && (iteration != 0) && (iteration % every == 0));
+            const int is_store_data = (dump_data && (iteration != 0) && (iteration % every == 0)) ? 1 : 0;
             const bool is_swap = (iteration % 2 == 0);
 
             cl::Kernel compute_kernel = cl::Kernel(program, "compute", &err);

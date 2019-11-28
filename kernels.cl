@@ -5,9 +5,21 @@
 // FP_SINGLE or FP_DOUBLE   to set the simulation with float or double type
 // DIM                      the cube dimension of the simulation
 // LWS                      work_group_size
-// STRIDE                   stride value used to calculate index of CSoA data layout
+// STRIDE_DIV               value used to calculate index of CSoA data layout
+// STRIDE_MOD               value used to calculate index of CSoA data layout
 // VELOCITY                 the moving wall velocity
 // VISCOSITY                the fluid viscosity
+
+
+#if defined(FP_SINGLE)
+typedef float real_t;
+#elif defined(FP_DOUBLE)
+#pragma OPENCL EXTENSION cl_khr_fp64 : enable
+#pragma OPENCL EXTENSION cl_amd_fp64 : enable
+typedef double real_t;
+#else
+#error "FP_SINGLE or FP_DOUBLE are not defined"
+#endif
 
 #ifndef DIM
 #error DIM is not defined
@@ -17,8 +29,12 @@
 #error LWS is not defined
 #endif
 
-#ifndef STRIDE
-#error STRIDE is not defined
+#ifndef STRIDE_DIV
+#error STRIDE_DIV is not defined
+#endif
+
+#ifndef STRIDE_MOD
+#error STRIDE_MOD is not defined
 #endif
 
 #ifndef VELOCITY
@@ -38,10 +54,7 @@
 #define STREAMING_METHOD                SAILFISH_METHOD
 
 
-#ifdef FP_DOUBLE
-#pragma OPENCL EXTENSION cl_khr_fp64 : enable
-#pragma OPENCL EXTENSION cl_amd_fp64 : enable
-#endif
+
 
 #define INITIAL_DENSITY                 1.0
 #define INITIAL_VELOCITY_X              VELOCITY
@@ -51,8 +64,11 @@
 #define TAU                             ((3.0 * VISCOSITY) + 0.5)
 #define INV_TAU                         (1.0 / TAU) // 1.89861401177140698415
 
-#define IDxyzq(id, q)                   (((id) / STRIDE) * Q + q) * STRIDE + ((id) & (STRIDE - 1))
-#define IDXYZQ(x, y, z, q)              (((((x) + ((y) * DIM) + ((z) * DIM * DIM)) / STRIDE) * Q + q) * STRIDE + (((x) + ((y) * DIM) + ((z) * DIM * DIM)) & (STRIDE - 1)))
+// #define IDxyzq(id, q)                   (((id) / STRIDE) * Q + q) * STRIDE + ((id) & (STRIDE - 1))
+// #define IDXYZQ(x, y, z, q)              (((((x) + ((y) * DIM) + ((z) * DIM * DIM)) / STRIDE) * Q + q) * STRIDE + (((x) + ((y) * DIM) + ((z) * DIM * DIM)) & (STRIDE - 1)))
+
+#define IDxyzq(id, q)                   ((((id) >> STRIDE_DIV) * Q + q) << STRIDE_DIV) + ((id) & STRIDE_MOD)
+#define IDXYZQ(x, y, z, q)              ((((((x) + ((y) * DIM) + ((z) * DIM * DIM)) >> STRIDE_DIV) * Q + q) << STRIDE_DIV) + (((x) + ((y) * DIM) + ((z) * DIM * DIM)) & STRIDE_MOD))
 
 #define IDxyz(x, y, z)                  ((x) + ((y) * (DIM)) + ((z) * (DIM) * (DIM)))
 #define UX(id)                          u[(id) * 3 + 0]

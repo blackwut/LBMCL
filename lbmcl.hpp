@@ -51,10 +51,6 @@ private:
     cl::CommandQueue queue;
     cl::Program program;
 
-    cl::Kernel initialize_kernel;
-    cl::Kernel compute_kernel;
-    cl::Kernel compute_swap_kernel;
-
     cl::Buffer f_stream;
     cl::Buffer f_collide;
     cl::Buffer rho;
@@ -66,6 +62,8 @@ private:
     T * rho_values = nullptr;
     T * u_values = nullptr;
 
+    cl::Kernel initialize_kernel;
+    std::vector<cl::Kernel> compute_kernels;
     std::vector< std::pair<std::string, cl::Event> > events;
 
     inline size_t f_dim()   const { return (dim * dim * dim * Q); }
@@ -329,18 +327,6 @@ private:
     }
 
 
-    void processData(const cl::Kernel & compute)
-    {
-        cl::Event compute_evt;
-
-        CLUCheckErrorExit(
-            queue.enqueueNDRangeKernel(compute, cl::NullRange, gws, lws, nullptr, &compute_evt),
-            "compute"
-        );
-        events.emplace_back("compute", compute_evt);
-    }
-
-
 public:
     LBMCL(size_t dim,
           T viscosity,
@@ -382,10 +368,9 @@ public:
         }
     }
 
-    // Create all objects needed to perform the simulation, excluding host
-    // buffers.
-    // To initialize the simulation see initialize() function.
-    void setupDevice(int platformID, int deviceID)
+
+    // Create all objects needed to perform the simulation.
+    void setupSimulation(int platformID, int deviceID)
     {
         CLUSelectPlatform(platform, platformID);
         CLUSelectDevice(device, platform, deviceID);
@@ -395,16 +380,6 @@ public:
         CLUBuildProgram(program, context, device, "kernels.cl", kernelOptionsStr());
 
         cl_int err;
-
-        // Kernels
-        initialize_kernel = cl::Kernel(program, "initialize", &err);
-        CLUCheckErrorExit(err, "cl::Kernel(initialize)");
-
-        compute_kernel = cl::Kernel(program, "compute", &err);
-        CLUCheckErrorExit(err, "cl::Kernel(compute)");
-
-        compute_swap_kernel = cl::Kernel(program, "compute", &err);
-        CLUCheckErrorExit(err, "cl::Kernel(compute_swap)");
 
         // Buffers
         f_stream = cl::Buffer(context, CL_MEM_READ_WRITE | (dump_f ? 0 : CL_MEM_HOST_NO_ACCESS), f_size(), nullptr, &err);
@@ -422,41 +397,43 @@ public:
         map = cl::Buffer(context, CL_MEM_READ_WRITE | (dump_map ? 0 : CL_MEM_HOST_NO_ACCESS), map_size(), nullptr, &err);
         CLUCheckErrorExit(err, "cl::Buffer(map)");
 
+
+        // Kernels
+        initialize_kernel = cl::Kernel(program, "initialize", &err);
+        CLUCheckErrorExit(err, "cl::Kernel(initialize)");
+
+        // Set arguments to initialize kernel
         try {
-            // Set arguments to initialize kernel
             initialize_kernel.setArg(0, f_stream);
             initialize_kernel.setArg(1, f_collide);
             initialize_kernel.setArg(2, rho);
             initialize_kernel.setArg(3, u);
             initialize_kernel.setArg(4, map);
-            // Set arguments to compute kernel
-            compute_kernel.setArg(0, f_stream);
-            compute_kernel.setArg(1, f_collide);
-            compute_kernel.setArg(2, rho);
-            compute_kernel.setArg(3, u);
-            compute_kernel.setArg(4, map);
-            // Set arguments to compute kernel
-            compute_swap_kernel.setArg(0, f_collide);
-            compute_swap_kernel.setArg(1, f_stream);
-            compute_swap_kernel.setArg(2, rho);
-            compute_swap_kernel.setArg(3, u);
-            compute_swap_kernel.setArg(4, map);
-            
         } catch (cl::Error err) {
             CLUErrorPrintExit(err);
         }
-    }
 
-    // Initialize host and device buffers
-    void initialize()
-    {
-        // Call initialize kernel to setup the simulation
-        cl::Event init_evt;
-        CLUCheckErrorExit(
-            queue.enqueueNDRangeKernel(initialize_kernel, cl::NullRange, gws, lws, nullptr, &init_evt),
-            "initialize"
-        );
-        events.emplace_back("initialize", init_evt);
+        for (size_t iteration = 1; iteration <= iterations; ++iteration) {
+            const bool is_store_data = (dump_data && (iteration != 0) && (iteration % every == 0));
+            const bool is_swap = (iteration % 2 == 0);
+
+            cl::Kernel compute_kernel = cl::Kernel(program, "compute", &err);
+            CLUCheckErrorExit(err, "cl::Kernel(compute)");
+
+            // Set arguments to compute kernel
+            try {
+                compute_kernel.setArg(0, (is_swap ? f_collide : f_stream ));
+                compute_kernel.setArg(1, (is_swap ? f_stream :  f_collide));
+                compute_kernel.setArg(2, rho);
+                compute_kernel.setArg(3, u);
+                compute_kernel.setArg(4, map);
+                compute_kernel.setArg(5, is_store_data);
+            } catch (cl::Error err) {
+                CLUErrorPrintExit(err);
+            }
+
+            compute_kernels.push_back(compute_kernel);
+        }
 
         // Allocate memory for output and dumps if needed
         if (map_values == nullptr && dump_map) {
@@ -481,21 +458,33 @@ public:
     // the completion of the simulation.
     void performSimulation()
     {
+        // Initialize the simulation
+        cl::Event init_evt;
+        CLUCheckErrorExit(
+            queue.enqueueNDRangeKernel(initialize_kernel, cl::NullRange, gws, lws, nullptr, &init_evt),
+            "initialize"
+        );
+        events.emplace_back("initialize", init_evt);
+
+        // Dump data if needed
         if (dump_map) storeMap();
         if (dump_data) storeData(0);
         if (dump_f) storeF(f_collide, 0);
 
-        for (size_t iteration = 1; iteration <= iterations; ++iteration) {
-            const bool is_swap = (iteration % 2 == 0);
+        for (size_t it = 1; it <= iterations; ++it) {
+            cl::Event compute_evt;
+            CLUCheckErrorExit(
+                queue.enqueueNDRangeKernel(compute_kernels[it - 1], cl::NullRange, gws, lws, nullptr, &compute_evt),
+                "compute"
+            );
+            events.emplace_back("compute", compute_evt);
 
-            processData((is_swap ? compute_swap_kernel : compute_kernel));
-
-            if (dump_data && (iteration != 0) && (iteration % every == 0)) {
-                storeData(iteration);
+            if (dump_data && (it != 0) && (it % every == 0)) {
+                storeData(it);
             }
 
             if (dump_f) {
-                storeF((is_swap ? f_stream : f_collide), iteration);
+                storeF(((it % 2 == 0) ? f_stream : f_collide), it);
             }
         }
     }
@@ -544,7 +533,7 @@ public:
         waitCompletion();
 
         double totalTime = 0.0;
-        for (std::pair<std::string, cl::Event> & p : events) {
+        for (const std::pair<std::string, cl::Event> & p : events) {
             totalTime += CLUEventsGetTime(p.second, p.second);
         }
 
@@ -562,7 +551,7 @@ public:
         std::vector< std::pair<std::string, double> > timings;
         timings.reserve(events.size());
 
-        for (std::pair<std::string, cl::Event> & p : events) {
+        for (const std::pair<std::string, cl::Event> & p : events) {
             const std::string name = p.first;
             const double time = CLUEventsGetTime(p.second, p.second);
             timings.emplace_back(name, time);

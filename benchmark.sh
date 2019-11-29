@@ -8,7 +8,7 @@ DEVICE=2
 
 VISCOSITY=0.0089
 VELOCITY=0.05
-ITERATIONS=10
+ITERATIONS=50
 EVERY=0
 
 # Exit if an error occurs
@@ -67,7 +67,7 @@ done
 
 DISCRIMINATOR='$9'
 
-cat $LOG | awk -F\; '{
+cat $LOG | grep -v 'beignet-opencl-icd:\|(If you' | awk -F\; '{
 
     i = $1";"$2";"$3";"$6";"$7;
 

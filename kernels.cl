@@ -1,5 +1,12 @@
 #include "common.h"
 
+#define SCRATCH_METHOD                  (1 << 0)
+#define SAILFISH_METHOD                 (1 << 1)
+#define SIMULATION_METHOD               SCRATCH_METHOD
+
+#define CALCULATION_ORDER_SAILFISH      0
+#define STREAMING_METHOD                SCRATCH_METHOD
+
 // The following definitions are provided at compile time
 //
 // FP_SINGLE or FP_DOUBLE   to set the simulation with float or double type
@@ -46,16 +53,6 @@ typedef double real_t;
 #endif
 
 
-#define SCRATCH_METHOD                  (1 << 0)
-#define SAILFISH_METHOD                 (1 << 1)
-#define SIMULATION_METHOD               SCRATCH_METHOD
-
-#define CALCULATION_ORDER_SAILFISH      1
-#define STREAMING_METHOD                SAILFISH_METHOD
-
-
-
-
 #define INITIAL_DENSITY                 1.0
 #define INITIAL_VELOCITY_X              VELOCITY
 #define INITIAL_VELOCITY_Y              0.0
@@ -64,16 +61,13 @@ typedef double real_t;
 #define TAU                             ((3.0 * VISCOSITY) + 0.5)
 #define INV_TAU                         (1.0 / TAU) // 1.89861401177140698415
 
-// #define IDxyzq(id, q)                   (((id) / STRIDE) * Q + q) * STRIDE + ((id) & (STRIDE - 1))
-// #define IDXYZQ(x, y, z, q)              (((((x) + ((y) * DIM) + ((z) * DIM * DIM)) / STRIDE) * Q + q) * STRIDE + (((x) + ((y) * DIM) + ((z) * DIM * DIM)) & (STRIDE - 1)))
-
 #define IDxyzq(id, q)                   ((((id) >> STRIDE_DIV) * Q + q) << STRIDE_DIV) + ((id) & STRIDE_MOD)
 #define IDXYZQ(x, y, z, q)              ((((((x) + ((y) * DIM) + ((z) * DIM * DIM)) >> STRIDE_DIV) * Q + q) << STRIDE_DIV) + (((x) + ((y) * DIM) + ((z) * DIM * DIM)) & STRIDE_MOD))
 
 #define IDxyz(x, y, z)                  ((x) + ((y) * (DIM)) + ((z) * (DIM) * (DIM)))
-#define UX(id)                          u[(id) * 3 + 0]
-#define UY(id)                          u[(id) * 3 + 1]
-#define UZ(id)                          u[(id) * 3 + 2]
+#define UX(id)                          u[0 * DIM * DIM * DIM + id]
+#define UY(id)                          u[1 * DIM * DIM * DIM + id]
+#define UZ(id)                          u[2 * DIM * DIM * DIM + id]
 
 
 // MACRO UNROLL of 19.
@@ -230,6 +224,7 @@ typedef double real_t;
 #define S_16        14
 #define S_17        11
 #define S_18        12
+
 
 #define PRIMITIVE_CAT(a, b) a ## b
 #define CAT(a, b)           PRIMITIVE_CAT(a, b)
@@ -424,7 +419,6 @@ void compute(__global real_t * restrict f_stream,
 
 #if (STREAMING_METHOD == SCRATCH_METHOD)
     if (is_wall(cell_type)) return;
-    if (is_corner(cell_type)) return;
 #undef  UNROLL_X
 #define UNROLL_X(i) f_stream[IDXYZQ(x + E##i##_X, y + E##i##_Y, z + E##i##_Z, i)] = f##i;
     UNROLL_19();

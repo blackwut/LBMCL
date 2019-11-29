@@ -18,9 +18,9 @@
 
 #define IDxyzqDIM(id, q, dim, stride)   (((id) / (stride)) * (dim) + q) * (stride) + ((id) & ((stride) - 1))
 #define IDxyzDIM(x, y, z, dim)          ((x) + ((y) * (dim)) + ((z) * (dim) * (dim)))
-#define IDux(id)                        ((id) * D + 0)
-#define IDuy(id)                        ((id) * D + 1)
-#define IDuz(id)                        ((id) * D + 2)
+#define IDuxDIM(id, dim)                (0 * dim * dim * dim + id)
+#define IDuyDIM(id, dim)                (1 * dim * dim * dim + id)
+#define IDuzDIM(id, dim)                (2 * dim * dim * dim + id)
 
 
 template <typename T>
@@ -306,9 +306,9 @@ private:
             for (size_t y = from; y < (to); ++y) {
                 for (size_t x = from; x < (to); ++x) {
                     const size_t id = IDxyzDIM(x, y, z, dim);
-                    const T val_x = u_values[IDux(id)];
-                    const T val_y = u_values[IDuy(id)];
-                    const T val_z = u_values[IDuz(id)];
+                    const T val_x = u_values[IDuxDIM(id, dim)];
+                    const T val_y = u_values[IDuyDIM(id, dim)];
+                    const T val_z = u_values[IDuzDIM(id, dim)];
                     vtk << std::scientific << std::setprecision(VTK_PRECISION) << val_x << " "
                         << std::scientific << std::setprecision(VTK_PRECISION) << val_y << " "
                         << std::scientific << std::setprecision(VTK_PRECISION) << val_z << " ";

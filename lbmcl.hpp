@@ -109,7 +109,7 @@ private:
     } 
 
 
-    inline size_t most_significant_bit(size_t x) const
+    inline size_t previous_power_of_two(size_t x) const
     {
         x |= x >>  1;
         x |= x >>  2;
@@ -346,7 +346,6 @@ public:
           iterations(iterations),
           every(every),
           vtk_path(vtk_path),
-          gws(dim, dim, dim),
           stride(stride),
           optimize(optimize),
           dump_path(dump_path),
@@ -355,16 +354,23 @@ public:
     {
         dump_data = (every != 0);
 
-        if (work_group_size > dim) {
-            work_group_size = dim;
+        if (!is_power_of_two(dim)) {
+            this->dim = previous_power_of_two(dim);
+            std::cout << "dim is rounded to the previous power of 2: " << this->dim << std::endl;
+        }
+
+        this->gws = cl::NDRange(this->dim, this->dim, this->dim);
+
+        if (work_group_size > this->dim) {
+            work_group_size = this->dim;
             std::cout << "work_group_size is set to " << work_group_size << std::endl;
         }
 
-        lws = cl::NDRange(work_group_size, 1, 1);
+        this->lws = cl::NDRange(work_group_size, 1, 1);
 
-        if (!is_power_of_two(stride)) {
-            stride = most_significant_bit(stride);
-            std::cout << "stride is rounded to the previous power of 2: " << stride << std::endl;
+        if (!is_power_of_two(this->stride)) {
+            this->stride = previous_power_of_two(this->stride);
+            std::cout << "stride is rounded to the previous power of 2: " << this->stride << std::endl;
         }
     }
 

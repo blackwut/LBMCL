@@ -1,6 +1,7 @@
 #!/bin/bash
 
 LOG="./stats.csv"
+BENCHMARK="./benchmark.csv"
 
 PRECISION=single
 PLATFORM=0
@@ -16,29 +17,29 @@ set -e
 
 _dim=(
     8
-    16
-    32
-    64
-    128
-    256
+    # 16
+    # 32
+    # 64
+    # 128
+    # 256
 )
 
 _lws=(
     8
-    16
-    32
-    64
-    128
-    256
+    # 16
+    # 32
+    # 64
+    # 128
+    # 256
 )
 
 _stride=(
     8
-    16
-    32
-    64
-    128
-    256
+    # 16
+    # 32
+    # 64
+    # 128
+    # 256
 )
 
 if [ -e $LOG ]; then
@@ -132,4 +133,4 @@ END {
 
         print i";"total_time[i]/N";"kernels_time[i]/N";"total_mlups[i]/N";"kernel_mlups[i]/N
     }
-}'
+}' > "$BENCHMARK"

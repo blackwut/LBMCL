@@ -34,6 +34,7 @@ _lws=(
 )
 
 _stride=(
+    1
     8
     16
     32
@@ -61,6 +62,21 @@ for d in "${_dim[@]}"; do
                         ./lbmcl -P $PLATFORM -D $DEVICE -d $d -n $VISCOSITY -u $VELOCITY -i $ITERATIONS -e $EVERY -w $l -s $s -o -F 2>> $LOG
                     fi
                 done
+            done
+        fi
+    done
+done
+
+# Benchmark for SoA where STRIDE = DIM
+for d in "${_dim[@]}"; do
+    for l in "${_lws[@]}"; do
+        if ((l <= d)); then
+            for k in `seq 1 11`; do
+                if [ "$PRECISION" = "single" ]; then
+                    ./lbmcl -P $PLATFORM -D $DEVICE -d $d -n $VISCOSITY -u $VELOCITY -i $ITERATIONS -e $EVERY -w $l -s $d -o 2>> $LOG
+                else
+                    ./lbmcl -P $PLATFORM -D $DEVICE -d $d -n $VISCOSITY -u $VELOCITY -i $ITERATIONS -e $EVERY -w $l -s $d -o -F 2>> $LOG
+                fi
             done
         fi
     done

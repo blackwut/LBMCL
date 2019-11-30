@@ -432,7 +432,6 @@ void compute(__global real_t * restrict f_stream,
         alive = false;
     }
 
-// TODO: remove ghost nodes to get better performance and small code
     __local real_t  _f1[LWS];
     __local real_t  _f7[LWS];
     __local real_t _f10[LWS];

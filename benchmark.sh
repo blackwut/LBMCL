@@ -73,9 +73,9 @@ for d in "${_dim[@]}"; do
         if ((l <= d)); then
             for k in `seq 1 11`; do
                 if [ "$PRECISION" = "single" ]; then
-                    ./lbmcl -P $PLATFORM -D $DEVICE -d $d -n $VISCOSITY -u $VELOCITY -i $ITERATIONS -e $EVERY -w $l -s $d -o 2>> $LOG
+                    ./lbmcl -P $PLATFORM -D $DEVICE -d $d -n $VISCOSITY -u $VELOCITY -i $ITERATIONS -e $EVERY -w $l -s $(($d * $d * $d)) -o 2>> $LOG
                 else
-                    ./lbmcl -P $PLATFORM -D $DEVICE -d $d -n $VISCOSITY -u $VELOCITY -i $ITERATIONS -e $EVERY -w $l -s $d -o -F 2>> $LOG
+                    ./lbmcl -P $PLATFORM -D $DEVICE -d $d -n $VISCOSITY -u $VELOCITY -i $ITERATIONS -e $EVERY -w $l -s $(($d * $d * $d)) -o -F 2>> $LOG
                 fi
             done
         fi

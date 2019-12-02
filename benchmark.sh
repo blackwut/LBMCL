@@ -1,7 +1,9 @@
 #!/bin/bash
 
-LOG="./stats.csv"
-BENCHMARK="./benchmark.csv"
+BENCHMARK_DIR="./benchmarks"
+LOG="$BENCHMARK_DIR/stats.csv"
+BENCHMARK="$BENCHMARK_DIR/benchmark.csv"
+
 
 PRECISION=single
 PLATFORM=0
@@ -25,12 +27,13 @@ _dim=(
 )
 
 _lws=(
-    8
-    16
-    32
-    64
-    128
-    256
+    "8,8,1"
+    "8,8,4"
+    "8,8,8"
+    "16,8,8"
+    "16,16,1"
+    "16,16,4"
+    "32,32,1"
 )
 
 _stride=(
@@ -45,6 +48,10 @@ _stride=(
 
 if [ -e $LOG ]; then
     rm $LOG
+fi
+
+if [ -e $BENCHMARK ]; then
+    rm $BENCHMARK
 fi
 
 make clean

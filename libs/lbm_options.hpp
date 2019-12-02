@@ -19,7 +19,9 @@ struct lbm_options {
     size_t iterations;
     size_t every;
     std::string vtk_path;
-    size_t lws;
+    size_t lwx;
+    size_t lwy;
+    size_t lwz;
     size_t stride;
     bool use_double;
     bool optimize;
@@ -36,7 +38,9 @@ struct lbm_options {
         iterations(10),
         every(1),
         vtk_path(RESULTS_FOLDER),
-        lws(32),
+        lwx(8),
+        lwy(8),
+        lwz(8),
         stride(32),
         use_double(false),
         optimize(false),
@@ -147,11 +151,12 @@ struct lbm_options {
                     every = int_opt;
                     break;
                 case 'w':
-                    if ((int_opt = std::stoi(optarg)) < 0) {
-                        std::cerr << "Please enter a valid number for work_group_size value" << std::endl;
-                        exit(1);
-                    }
-                    lws = int_opt;
+                    sscanf(optarg, "%zu,%zu,%zu", &lwx, &lwy, &lwz);
+                    // if ((int_opt = std::stoi(optarg)) < 0) {
+                    //     std::cerr << "Please enter a valid number for work_group_size value" << std::endl;
+                    //     exit(1);
+                    // }
+                    // lws = int_opt;
                     break;
                 case 's':
                     if ((int_opt = std::stoi(optarg)) < 0) {

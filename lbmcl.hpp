@@ -334,7 +334,9 @@ public:
           size_t iterations,
           size_t every,
           std::string vtk_path = "",
-          size_t work_group_size = 32,
+          size_t lwx = 8,
+          size_t lwy = 8,
+          size_t lwz = 8,
           size_t stride = 32,
           bool optimize = true,
           std::string dump_path = "",
@@ -361,12 +363,21 @@ public:
 
         this->gws = cl::NDRange(this->dim, this->dim, this->dim);
 
-        if (work_group_size > this->dim) {
-            work_group_size = this->dim;
-            std::cout << "work_group_size is set to " << work_group_size << std::endl;
+        // if (work_group_size > this->dim) {
+        //     work_group_size = this->dim;
+        //     std::cout << "work_group_size is set to " << work_group_size << std::endl;
+        // }
+
+        if (lwx == 0) lwx = 1;
+        if (lwy == 0) lwy = 1;
+        if (lwz == 0) lwz = 1;
+
+        if ((lwx * lwy * lwz) > (this->dim * this->dim * this->dim)) {
+            std::cerr << "Please enter a good work_group_size to run the simulation" << std::endl;
+            exit(-1);
         }
 
-        this->lws = cl::NDRange(work_group_size, 1, 1);
+        this->lws = cl::NDRange(lwx, lwy, lwz);
 
         if (!is_power_of_two(this->stride)) {
             this->stride = previous_power_of_two(this->stride);
@@ -425,6 +436,18 @@ public:
 
             cl::Kernel compute_kernel = cl::Kernel(program, "compute", &err);
             CLUCheckErrorExit(err, "cl::Kernel(compute)");
+
+            // size_t wgs = compute_kernel.getWorkGroupInfo<CL_KERNEL_WORK_GROUP_SIZE>(device);
+            // std::cout << "CL_KERNEL_WORK_GROUP_SIZE: " << wgs << std::endl;
+
+            // cl_ulong lms = compute_kernel.getWorkGroupInfo<CL_KERNEL_LOCAL_MEM_SIZE>(device);
+            // std::cout << "CL_KERNEL_LOCAL_MEM_SIZE: " << lms << std::endl;
+
+            // cl_ulong pms = compute_kernel.getWorkGroupInfo<CL_KERNEL_PRIVATE_MEM_SIZE>(device);
+            // std::cout << "CL_KERNEL_PRIVATE_MEM_SIZE: " << pms << std::endl;
+
+            // size_t pwgsm = compute_kernel.getWorkGroupInfo<CL_KERNEL_PREFERRED_WORK_GROUP_SIZE_MULTIPLE>(device);
+            // std::cout << "CL_KERNEL_PREFERRED_WORK_GROUP_SIZE_MULTIPLE: " << pwgsm << std::endl;
 
             // Set arguments to compute kernel
             try {
@@ -598,23 +621,23 @@ public:
         const std::string prec = (std::is_same<T, float>::value ? "single" : "double");
         const std::string dev_name = device.getInfo<CL_DEVICE_NAME>();
         std::cout << std::boolalpha
-                  << "kernel options   = " << kernelOptionsStr()     << "\n"
-                  << "device           = " << dev_name               << "\n"
-                  << "dim              = " << dim                    << "\n"
-                  << "viscosity        = " << viscosity              << "\n"
-                  << "velocity         = " << velocity               << "\n"
-                  << "Device Mem. (B)  = " << device_memory_size_b() << "\n"
-                  << "Device Mem. (KB) = " << device_memory_size_k() << "\n"
-                  << "Device Mem. (MB) = " << device_memory_size_m() << "\n"
-                  << "iterations       = " << iterations             << "\n"
-                  << "work_group_size  = " << lws[0]                 << "\n"
-                  << "stride           = " << stride                 << "\n"
-                  << "precision        = " << prec                   << "\n"
-                  << "optimize         = " << optimize               << "\n"
-                  << "every            = " << every                  << "\n"
-                  << "VTK PATH         = " << vtk_path               << "\n"
-                  << "DUMP F           = " << dump_f                 << "\n"
-                  << "DUMP MAP         = " << dump_map               << "\n";
+                  << "kernel options   = " << kernelOptionsStr()                          << "\n"
+                  << "device           = " << dev_name                                    << "\n"
+                  << "dim              = " << dim                                         << "\n"
+                  << "viscosity        = " << viscosity                                   << "\n"
+                  << "velocity         = " << velocity                                    << "\n"
+                  << "Device Mem. (B)  = " << device_memory_size_b()                      << "\n"
+                  << "Device Mem. (KB) = " << device_memory_size_k()                      << "\n"
+                  << "Device Mem. (MB) = " << device_memory_size_m()                      << "\n"
+                  << "iterations       = " << iterations                                  << "\n"
+                  << "work_group_size  = (" << lws[0] << ", " << lws[1] << ", " << lws[2] << ")\n"
+                  << "stride           = " << stride                                      << "\n"
+                  << "precision        = " << prec                                        << "\n"
+                  << "optimize         = " << optimize                                    << "\n"
+                  << "every            = " << every                                       << "\n"
+                  << "VTK PATH         = " << vtk_path                                    << "\n"
+                  << "DUMP F           = " << dump_f                                      << "\n"
+                  << "DUMP MAP         = " << dump_map                                    << "\n";
     }
 
 
@@ -624,18 +647,18 @@ public:
         const std::string dev_name = device.getInfo<CL_DEVICE_NAME>();
 
         std::stringstream stat;
-        stat << dev_name.c_str() << separator
-             << prec             << separator
-             << dim              << separator
-             << iterations       << separator
-             << every            << separator
-             << lws[0]           << separator
-             << stride           << separator
-             << optimize         << separator
-             << totalTimeMS()    << separator
-             << kernelsTimeMS()  << separator
-             << MLUPS()          << separator
-             << kernelsMLUPS()   << "\n";
+        stat << dev_name.c_str()                         << separator
+             << prec                                     << separator
+             << dim                                      << separator
+             << iterations                               << separator
+             << every                                    << separator
+             << lws[0] << "," << lws[1] << "," << lws[2] << separator
+             << stride                                   << separator
+             << optimize                                 << separator
+             << totalTimeMS()                            << separator
+             << kernelsTimeMS()                          << separator
+             << MLUPS()                                  << separator
+             << kernelsMLUPS()                           << "\n";
         return stat.str();
     }
 

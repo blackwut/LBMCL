@@ -23,6 +23,13 @@
 #define IDuzDIM(id, dim)                (2 * dim * dim * dim + id)
 
 
+#define INITIALIZE_KERNEL_NAME  "initialize"
+#define COMPUTE_KERNEL_NAME     "compute"
+#define READ_MAP_NAME           "read_map"
+#define READ_F_NAME             "read_f"
+#define READ_RHO_NAME           "read_rho"
+#define READ_U_NAME             "read_u"
+
 template <typename T>
 class LBMCL
 {
@@ -155,9 +162,9 @@ private:
         cl::Event read_evt;
         CLUCheckErrorExit(
             queue.enqueueReadBuffer(map, CL_TRUE, 0, map_size(), map_values, nullptr, &read_evt),
-            "read_map"
+            READ_MAP_NAME
         );
-        events.emplace_back("read_map", read_evt);
+        events.emplace_back(READ_MAP_NAME, read_evt);
 
         // Store to file
         std::stringstream filenameBuilder;
@@ -202,9 +209,9 @@ private:
         cl::Event read_evt;
         CLUCheckErrorExit(
             queue.enqueueReadBuffer(f, CL_TRUE, 0, f_size(), f_values, nullptr, &read_evt),
-            "read_f"
+            READ_F_NAME
         );
-        events.emplace_back("read_f", read_evt);
+        events.emplace_back(READ_F_NAME, read_evt);
 
 
         // Store to file
@@ -259,15 +266,15 @@ private:
     
         CLUCheckErrorExit(
             queue.enqueueReadBuffer(rho, CL_TRUE, 0, rho_size(), rho_values, nullptr, &read_rho_evt),
-            "read_rho"
+            READ_RHO_NAME
         );
-        events.emplace_back("read_rho", read_rho_evt);
+        events.emplace_back(READ_RHO_NAME, read_rho_evt);
 
         CLUCheckErrorExit(
             queue.enqueueReadBuffer(u, CL_TRUE, 0, u_size(), u_values, nullptr, &read_u_evt),
-            "read_u"
+            READ_U_NAME
         );
-        events.emplace_back("read_u", read_u_evt);
+        events.emplace_back(READ_U_NAME, read_u_evt);
 
 
         // Store to file
@@ -416,7 +423,7 @@ public:
 
 
         // Kernels
-        initialize_kernel = cl::Kernel(program, "initialize", &err);
+        initialize_kernel = cl::Kernel(program, INITIALIZE_KERNEL_NAME, &err);
         CLUCheckErrorExit(err, "cl::Kernel(initialize)");
 
         // Set arguments to initialize kernel
@@ -434,7 +441,7 @@ public:
             const int is_store_data = (dump_data && (iteration != 0) && (iteration % every == 0)) ? 1 : 0;
             const bool is_swap = (iteration % 2 == 0);
 
-            cl::Kernel compute_kernel = cl::Kernel(program, "compute", &err);
+            cl::Kernel compute_kernel = cl::Kernel(program, COMPUTE_KERNEL_NAME, &err);
             CLUCheckErrorExit(err, "cl::Kernel(compute)");
 
             // size_t wgs = compute_kernel.getWorkGroupInfo<CL_KERNEL_WORK_GROUP_SIZE>(device);
@@ -491,9 +498,9 @@ public:
         cl::Event init_evt;
         CLUCheckErrorExit(
             queue.enqueueNDRangeKernel(initialize_kernel, cl::NullRange, gws, lws, nullptr, &init_evt),
-            "initialize"
+            INITIALIZE_KERNEL_NAME
         );
-        events.emplace_back("initialize", init_evt);
+        events.emplace_back(INITIALIZE_KERNEL_NAME, init_evt);
 
         // Dump data if needed
         if (dump_map) storeMap();
@@ -504,9 +511,9 @@ public:
             cl::Event compute_evt;
             CLUCheckErrorExit(
                 queue.enqueueNDRangeKernel(compute_kernels[it - 1], cl::NullRange, gws, lws, nullptr, &compute_evt),
-                "compute"
+                COMPUTE_KERNEL_NAME
             );
-            events.emplace_back("compute", compute_evt);
+            events.emplace_back(COMPUTE_KERNEL_NAME, compute_evt);
 
             if (dump_data && (it != 0) && (it % every == 0)) {
                 storeData(it);
@@ -563,7 +570,9 @@ public:
 
         double totalTime = 0.0;
         for (const std::pair<std::string, cl::Event> & p : events) {
-            totalTime += CLUEventsGetTime(p.second, p.second);
+            if (p.first == COMPUTE_KERNEL_NAME){
+                totalTime += CLUEventsGetTime(p.second, p.second);
+            }
         }
 
         return totalTime;
@@ -647,18 +656,20 @@ public:
         const std::string dev_name = device.getInfo<CL_DEVICE_NAME>();
 
         std::stringstream stat;
-        stat << dev_name.c_str()                         << separator
-             << prec                                     << separator
-             << dim                                      << separator
-             << iterations                               << separator
-             << every                                    << separator
-             << lws[0] << "," << lws[1] << "," << lws[2] << separator
-             << stride                                   << separator
-             << optimize                                 << separator
-             << totalTimeMS()                            << separator
-             << kernelsTimeMS()                          << separator
-             << MLUPS()                                  << separator
-             << kernelsMLUPS()                           << "\n";
+        stat << dev_name.c_str()                            << separator
+             << prec                                        << separator
+             << dim                                         << separator
+             << iterations                                  << separator
+             << every                                       << separator
+             << std::setw(3) << std::setfill('0') << lws[0] << ","
+             << std::setw(3) << std::setfill('0') << lws[1] << ","
+             << std::setw(3) << std::setfill('0') << lws[2] << separator
+             << stride                                      << separator
+             << optimize                                    << separator
+             << totalTimeMS()                               << separator
+             << kernelsTimeMS()                             << separator
+             << MLUPS()                                     << separator
+             << kernelsMLUPS()                              << "\n";
         return stat.str();
     }
 

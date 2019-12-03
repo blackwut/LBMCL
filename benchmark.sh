@@ -27,13 +27,12 @@ _dim=(
 )
 
 _lws=(
-    "8,8,1"
-    "8,8,4"
-    "8,8,8"
-    "16,8,8"
-    "16,16,1"
-    "16,16,4"
-    "32,32,1"
+    1
+    8
+    16
+    32
+    64
+    128
 )
 
 _stride=(
@@ -59,35 +58,45 @@ make
 
 
 for d in "${_dim[@]}"; do
-    for l in "${_lws[@]}"; do
-        if ((l <= d)); then
-            for s in "${_stride[@]}"; do
-                for k in `seq 1 11`; do
-                    if [ "$PRECISION" = "single" ]; then
-                        ./lbmcl -P $PLATFORM -D $DEVICE -d $d -n $VISCOSITY -u $VELOCITY -i $ITERATIONS -e $EVERY -w $l -s $s -o 2>> $LOG
-                    else
-                        ./lbmcl -P $PLATFORM -D $DEVICE -d $d -n $VISCOSITY -u $VELOCITY -i $ITERATIONS -e $EVERY -w $l -s $s -o -F 2>> $LOG
-                    fi
-                done
+    for x in "${_lws[@]}"; do
+        for y in "${_lws[@]}"; do
+            for z in "${_lws[@]}"; do
+                gws=$(($x * $y * $z))
+                if ((($gws <= 1024) && ($gws <= $d))); then
+                    for s in "${_stride[@]}"; do
+                        for k in `seq 1 5`; do
+                            if [ "$PRECISION" = "single" ]; then
+                                ./lbmcl -P $PLATFORM -D $DEVICE -d $d -n $VISCOSITY -u $VELOCITY -i $ITERATIONS -e $EVERY -w "$x,$y,$z" -s $s -o 2>> $LOG
+                            else
+                                ./lbmcl -P $PLATFORM -D $DEVICE -d $d -n $VISCOSITY -u $VELOCITY -i $ITERATIONS -e $EVERY -w "$x,$y,$z" -s $s -o -F 2>> $LOG
+                            fi
+                        done
+                    done
+                fi
             done
-        fi
+        done
     done
 done
 
-# Benchmark for SoA where STRIDE = DIM
 for d in "${_dim[@]}"; do
-    for l in "${_lws[@]}"; do
-        if ((l <= d)); then
-            for k in `seq 1 11`; do
-                if [ "$PRECISION" = "single" ]; then
-                    ./lbmcl -P $PLATFORM -D $DEVICE -d $d -n $VISCOSITY -u $VELOCITY -i $ITERATIONS -e $EVERY -w $l -s $(($d * $d * $d)) -o 2>> $LOG
-                else
-                    ./lbmcl -P $PLATFORM -D $DEVICE -d $d -n $VISCOSITY -u $VELOCITY -i $ITERATIONS -e $EVERY -w $l -s $(($d * $d * $d)) -o -F 2>> $LOG
+    for x in "${_lws[@]}"; do
+        for y in "${_lws[@]}"; do
+            for z in "${_lws[@]}"; do
+                gws=$(($x * $y * $z))
+                if ((($gws <= 1024) && ($gws <= $d))); then
+                    for k in `seq 1 5`; do
+                        if [ "$PRECISION" = "single" ]; then
+                            ./lbmcl -P $PLATFORM -D $DEVICE -d $d -n $VISCOSITY -u $VELOCITY -i $ITERATIONS -e $EVERY -w "$x,$y,$z" -s $(($d * $d * $d)) -o 2>> $LOG
+                        else
+                            ./lbmcl -P $PLATFORM -D $DEVICE -d $d -n $VISCOSITY -u $VELOCITY -i $ITERATIONS -e $EVERY -w "$x,$y,$z" -s $(($d * $d * $d)) -o -F 2>> $LOG
+                        fi
+                    done
                 fi
             done
-        fi
+        done
     done
 done
+
 
 DISCRIMINATOR='$9'
 

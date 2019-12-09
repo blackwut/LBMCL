@@ -23,7 +23,6 @@ _dim=(
     32
     64
     128
-    256
 )
 
 _lws=(
@@ -35,7 +34,6 @@ _lws=(
     32
     64
     128
-    256
 )
 
 _stride=(
@@ -45,7 +43,6 @@ _stride=(
     32
     64
     128
-    256
 )
 
 if [ -e $LOG ]; then
@@ -67,9 +64,10 @@ for d in "${_dim[@]}"; do
                 for z in "${_lws[@]}"; do
                     if (($z <= $y)); then
                         gws=$(($x * $y * $z))
-                        if ((($gws <= 1024) && ($gws <= $d))); then
+                        if ((($gws <= 1024) && (($x <= $d) || ($y <= $d) || ($z <= $d)))); then
                             for s in "${_stride[@]}"; do
                                 for k in `seq 1 5`; do
+                                    #echo "$d - $x, $y, $z - $s"
                                     if [ "$PRECISION" = "single" ]; then
                                         ./lbmcl -P $PLATFORM -D $DEVICE -d $d -n $VISCOSITY -u $VELOCITY -i $ITERATIONS -e $EVERY -w "$x,$y,$z" -s $s -o 2>> $LOG
                                     else
@@ -92,7 +90,7 @@ for d in "${_dim[@]}"; do
                 for z in "${_lws[@]}"; do
                     if (($z <= $y)); then
                         gws=$(($x * $y * $z))
-                        if ((($gws <= 1024) && ($gws <= $d))); then
+                        if ((($gws <= 1024) && (($x <= $d) || ($y <= $d) || ($z <= $d)))); then
                             for k in `seq 1 5`; do
                                 if [ "$PRECISION" = "single" ]; then
                                     ./lbmcl -P $PLATFORM -D $DEVICE -d $d -n $VISCOSITY -u $VELOCITY -i $ITERATIONS -e $EVERY -w "$x,$y,$z" -s $(($d * $d * $d)) -o 2>> $LOG

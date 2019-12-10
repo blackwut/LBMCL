@@ -58,7 +58,7 @@ struct lbm_options {
                      "-u  --velocity            Set the x velocity of the moving wall          \n"
                      "-i  --iterations          Specify the number of iterations               \n"
                      "-e  --every               Save simulation results every N iterations     \n"
-                     "-w  --work_group_size     Specify the work group size of kernel launch   \n"
+                     "-w  --work_group_size     Specify the work group size \"x,y,z\"          \n"
                      "-s  --stride              Specify the stride used in CSoA memory layout  \n"
                      "-F  --use_double          Make use of \"double\" type                    \n"
                      "-o  --optimize            Use \"cl-fast-relaxed-math\" in OpenCL kernels \n"
@@ -152,11 +152,6 @@ struct lbm_options {
                     break;
                 case 'w':
                     sscanf(optarg, "%zu,%zu,%zu", &lwx, &lwy, &lwz);
-                    // if ((int_opt = std::stoi(optarg)) < 0) {
-                    //     std::cerr << "Please enter a valid number for work_group_size value" << std::endl;
-                    //     exit(1);
-                    // }
-                    // lws = int_opt;
                     break;
                 case 's':
                     if ((int_opt = std::stoi(optarg)) < 0) {

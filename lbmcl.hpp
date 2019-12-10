@@ -370,11 +370,6 @@ public:
 
         this->gws = cl::NDRange(this->dim, this->dim, this->dim);
 
-        // if (work_group_size > this->dim) {
-        //     work_group_size = this->dim;
-        //     std::cout << "work_group_size is set to " << work_group_size << std::endl;
-        // }
-
         if (lwx == 0) lwx = 1;
         if (lwy == 0) lwy = 1;
         if (lwz == 0) lwz = 1;

@@ -1,6 +1,9 @@
 #!/bin/bash
 
-LOG="./stats.csv"
+BENCHMARK_DIR="./benchmarks"
+LOG="$BENCHMARK_DIR/stats.csv"
+BENCHMARK="$BENCHMARK_DIR/benchmark.csv"
+
 
 PRECISION=single
 PLATFORM=0
@@ -8,7 +11,7 @@ DEVICE=2
 
 VISCOSITY=0.0089
 VELOCITY=0.05
-ITERATIONS=10
+ITERATIONS=50
 EVERY=0
 
 # Exit if an error occurs
@@ -20,29 +23,34 @@ _dim=(
     32
     64
     128
-    256
 )
 
 _lws=(
+    1
+    2
+    4
     8
     16
     32
     64
     128
-    256
 )
 
 _stride=(
+    1
     8
     16
     32
     64
     128
-    256
 )
 
 if [ -e $LOG ]; then
     rm $LOG
+fi
+
+if [ -e $BENCHMARK ]; then
+    rm $BENCHMARK
 fi
 
 make clean
@@ -50,24 +58,57 @@ make
 
 
 for d in "${_dim[@]}"; do
-    for l in "${_lws[@]}"; do
-        if ((l <= d)); then
-            for s in "${_stride[@]}"; do
-                for k in `seq 1 11`; do
-                    if [ "$PRECISION" = "single" ]; then
-                        ./lbmcl -P $PLATFORM -D $DEVICE -d $d -n $VISCOSITY -u $VELOCITY -i $ITERATIONS -e $EVERY -w $l -s $s -o 2>> $LOG
-                    else
-                        ./lbmcl -P $PLATFORM -D $DEVICE -d $d -n $VISCOSITY -u $VELOCITY -i $ITERATIONS -e $EVERY -w $l -s $s -o -F 2>> $LOG
+    for x in "${_lws[@]}"; do
+        for y in "${_lws[@]}"; do
+            if (($y <= $x)); then
+                for z in "${_lws[@]}"; do
+                    if (($z <= $y)); then
+                        gws=$(($x * $y * $z))
+                        if ((($gws <= 1024) && (($x <= $d) && ($y <= $d) && ($z <= $d)))); then
+                            for s in "${_stride[@]}"; do
+                                for k in `seq 1 10`; do
+                                    #echo "$d - $x, $y, $z - $s"
+                                    if [ "$PRECISION" = "single" ]; then
+                                        ./lbmcl -P $PLATFORM -D $DEVICE -d $d -n $VISCOSITY -u $VELOCITY -i $ITERATIONS -e $EVERY -w "$x,$y,$z" -s $s -o 2>> $LOG
+                                    else
+                                        ./lbmcl -P $PLATFORM -D $DEVICE -d $d -n $VISCOSITY -u $VELOCITY -i $ITERATIONS -e $EVERY -w "$x,$y,$z" -s $s -o -F 2>> $LOG
+                                    fi
+                                done
+                            done
+                        fi
                     fi
                 done
-            done
-        fi
+            fi
+        done
+    done
+done
+
+for d in "${_dim[@]}"; do
+    for x in "${_lws[@]}"; do
+        for y in "${_lws[@]}"; do
+            if (($y <= $x)); then
+                for z in "${_lws[@]}"; do
+                    if (($z <= $y)); then
+                        gws=$(($x * $y * $z))
+                        if ((($gws <= 1024) && (($x <= $d) && ($y <= $d) && ($z <= $d)))); then
+                            for k in `seq 1 10`; do
+                                if [ "$PRECISION" = "single" ]; then
+                                    ./lbmcl -P $PLATFORM -D $DEVICE -d $d -n $VISCOSITY -u $VELOCITY -i $ITERATIONS -e $EVERY -w "$x,$y,$z" -s $(($d * $d * $d)) -o 2>> $LOG
+                                else
+                                    ./lbmcl -P $PLATFORM -D $DEVICE -d $d -n $VISCOSITY -u $VELOCITY -i $ITERATIONS -e $EVERY -w "$x,$y,$z" -s $(($d * $d * $d)) -o -F 2>> $LOG
+                                fi
+                            done
+                        fi
+                    fi
+                done
+            fi
+        done
     done
 done
 
 DISCRIMINATOR='$9'
 
-cat $LOG | awk -F\; '{
+cat $LOG | grep -v 'beignet-opencl-icd:\|(If you' | awk -F\; '{
 
     i = $1";"$2";"$3";"$6";"$7;
 
@@ -132,4 +173,4 @@ END {
 
         print i";"total_time[i]/N";"kernels_time[i]/N";"total_mlups[i]/N";"kernel_mlups[i]/N
     }
-}'
+}' > "$BENCHMARK"

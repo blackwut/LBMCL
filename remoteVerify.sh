@@ -19,7 +19,7 @@ set -e
 # Help message
 function print_help
 {
-    echo "USAGE: ./remoteVerify.sh  DIM  WORK_GROUP_SIZE  STRIDE  ITERATIONS  EVERY  [PRECISION]"
+    echo "USAGE: ./remoteVerify.sh  DIM  LWS_X,LWS_Y,LWS_Z  STRIDE  ITERATIONS  EVERY  [PRECISION]"
 }
 
 
@@ -31,11 +31,29 @@ if [ -z "$1" ] || (("$1" < 8 || "$1" > 256)); then
 fi
 DIM="$1"
 
-if [ -z "$2" ] || (("$2" < 0 || "$2" > 256)); then
+
+LWS_X=$(echo "$2" | cut -d, -f1)
+LWS_Y=$(echo "$2" | cut -d, -f2)
+LWS_Z=$(echo "$2" | cut -d, -f3)
+
+if [ -z "$LWS_X" ] || (("$LWS_X" < 0 || "$LWS_X" > "$DIM")); then
     print_help
-    echo "WORK_GROUP_SIZE: Please enter a number in the range [1, 256]"
+    echo "LWS_X: Please enter a number in the range [1, $DIM]"
     exit -1;
 fi
+
+if [ -z "$LWS_Y" ] || (("$LWS_Y" < 0 || "$LWS_Y" > "$DIM")); then
+    print_help
+    echo "LWS_Y: Please enter a number in the range [1, $DIM]"
+    exit -1;
+fi
+
+if [ -z "$LWS_Z" ] || (("$LWS_Z" < 0 || "$LWS_Z" > "$DIM")); then
+    print_help
+    echo "LWS_Z: Please enter a number in the range [1, $DIM]"
+    exit -1;
+fi
+
 LWS="$2"
 
 if [ -z "$3" ] || (("$3" < 0 || "$3" > 256)); then

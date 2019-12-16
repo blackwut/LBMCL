@@ -24,6 +24,8 @@ source ./project/bin/activate
 # Install all requirements
 pip install -r requirements.txt
 
+... use lbmcl ...
+
 # Deactivate the environment if needed
 deactivate
 ```
@@ -74,8 +76,8 @@ make test32
 -n  --viscosity           Set the fluid viscosity
 -u  --velocity            Set the x velocity of the moving wall
 -i  --iterations          Specify the number of iterations
--e  --every               Save simulation results every N iterations
--w  --work_group_size     Specify the work group size of kernel launch
+-e  --every               Save simulation results every N iterations     
+-w  --work_group_size     Specify the work group size "x,y,z"
 -s  --stride              Specify the stride used in CSoA memory layout
 -F  --use_double          Make use of "double" type
 -o  --optimize            Use "cl-fast-relaxed-math" in OpenCL kernels

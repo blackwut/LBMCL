@@ -202,7 +202,8 @@ static inline void CLUBuildProgram(cl::Program & program,
                                    const cl::Context & context,
                                    const cl::Device & device,
                                    const std::string & filename,
-                                   const std::string & options)
+                                   const std::string & options,
+                                   const bool printBuildLog = false)
 {
     std::ifstream streamSourcecode(filename);
     std::string sourcecode(std::istreambuf_iterator<char>(streamSourcecode),
@@ -211,6 +212,12 @@ static inline void CLUBuildProgram(cl::Program & program,
         cl::Program::Sources source(1, std::make_pair(sourcecode.c_str(), sourcecode.length() + 1));
         program = cl::Program(context, source);
         program.build(options.c_str());
+
+        if (printBuildLog) {
+          std::string build_log = program.getBuildInfo<CL_PROGRAM_BUILD_LOG>(device);
+          std::cout << "build log: " << build_log << std::endl;
+        }
+
     } catch(cl::Error err) {
         CLUErrorPrint(err);
         if (err.err() == CL_BUILD_PROGRAM_FAILURE) {

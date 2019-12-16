@@ -14,7 +14,7 @@ VISCOSITY	= 0.0089
 VELOCITY	= 0.05
 ITERATIONS	= 10
 EVERY		= 1
-LWS			= 8
+LWS			= 8,8,8
 STRIDE		= 8
 PRECISION	= single # single or double
 OPTIMIZE	= true
@@ -74,7 +74,7 @@ test8: $(TARGET)
 	@ $(RM) $(RESULTS)/map.dump
 	@ $(RM) $(RESULTS)/f_*.dump
 	@ $(RM) $(RESULTS)/lbmcl.*.vti
-	@ ./lbmcl -P$(PLATFORM) -D$(DEVICE) -d 8 -n 0.0089 -u 0.05 -i 10 -e 1 -w 32 -s 8 -v $(RESULTS) $(MORE_FLAGS)
+	@ ./lbmcl -P$(PLATFORM) -D$(DEVICE) -d 8 -n 0.0089 -u 0.05 -i 10 -e 1 -w 8,8,8 -s 8 -v $(RESULTS) $(MORE_FLAGS)
 	@ python3 verify.py -i 10 -e 1 -t $(TARGET_RES)/8 -p $(RESULTS)
 
 
@@ -82,7 +82,7 @@ test32: $(TARGET)
 	@ $(RM) $(RESULTS)/map.dump
 	@ $(RM) $(RESULTS)/f_*.dump
 	@ $(RM) $(RESULTS)/lbmcl.*.vti
-	@ ./lbmcl -P$(PLATFORM) -D$(DEVICE) -d 32 -n 0.0089 -u 0.05 -i 500 -e 20 -w 32 -s 32 -v $(RESULTS) $(MORE_FLAGS)
+	@ ./lbmcl -P$(PLATFORM) -D$(DEVICE) -d 32 -n 0.0089 -u 0.05 -i 500 -e 20 -w 32,32,1 -s 32 -v $(RESULTS) $(MORE_FLAGS)
 	@ python3 verify.py -i500 -e20 -t $(TARGET_RES)/32 -p $(RESULTS)
 
 

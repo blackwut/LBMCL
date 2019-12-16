@@ -16,6 +16,20 @@
 #define VTK_PRECISION       16
 
 
+#define IDxyzqDIM(id, q, dim, stride)   (((id) / (stride)) * (dim) + q) * (stride) + ((id) & ((stride) - 1))
+#define IDxyzDIM(x, y, z, dim)          ((x) + ((y) * (dim)) + ((z) * (dim) * (dim)))
+#define IDuxDIM(id, dim)                (0 * dim * dim * dim + id)
+#define IDuyDIM(id, dim)                (1 * dim * dim * dim + id)
+#define IDuzDIM(id, dim)                (2 * dim * dim * dim + id)
+
+
+#define INITIALIZE_KERNEL_NAME  "initialize"
+#define COMPUTE_KERNEL_NAME     "compute"
+#define READ_MAP_NAME           "read_map"
+#define READ_F_NAME             "read_f"
+#define READ_RHO_NAME           "read_rho"
+#define READ_U_NAME             "read_u"
+
 template <typename T>
 class LBMCL
 {
@@ -44,10 +58,6 @@ private:
     cl::CommandQueue queue;
     cl::Program program;
 
-    cl::Kernel initialize_kernel;
-    cl::Kernel compute_kernel;
-    cl::Kernel compute_swap_kernel;
-
     cl::Buffer f_stream;
     cl::Buffer f_collide;
     cl::Buffer rho;
@@ -59,6 +69,8 @@ private:
     T * rho_values = nullptr;
     T * u_values = nullptr;
 
+    cl::Kernel initialize_kernel;
+    std::vector<cl::Kernel> compute_kernels;
     std::vector< std::pair<std::string, cl::Event> > events;
 
     inline size_t f_dim()   const { return (dim * dim * dim * Q); }
@@ -89,22 +101,31 @@ private:
         return device_memory_size_b() / (1 << 20);
     }
 
+
     inline bool is_power_of_two(size_t x) const
     {
         return x && !(x & (x - 1));
     }
 
 
-    inline size_t most_significant_bit(size_t n)
+    inline size_t log2i(size_t x) const
     {
-        n |= n >>  1;
-        n |= n >>  2;
-        n |= n >>  4;
-        n |= n >>  8;
-        n |= n >> 16;
-        n |= n >> 32;
-        n = n + 1;
-        return (n >> 1);
+       size_t n;
+       for (n = 0; x > 1; x >>= 1, n++);
+       return n;
+    } 
+
+
+    inline size_t previous_power_of_two(size_t x) const
+    {
+        x |= x >>  1;
+        x |= x >>  2;
+        x |= x >>  4;
+        x |= x >>  8;
+        x |= x >> 16;
+        x |= x >> 32;
+        x = x + 1;
+        return (x >> 1);
     }
 
     std::string kernelOptionsStr()
@@ -114,7 +135,8 @@ private:
         optionsBuilder << "-I. ";
         optionsBuilder << "-DDIM=" << dim << " ";
         optionsBuilder << "-DLWS=" << lws[0] << " ";
-        optionsBuilder << "-DSTRIDE=" << stride << " ";
+        optionsBuilder << "-DSTRIDE_DIV=" << log2i(stride) << " ";
+        optionsBuilder << "-DSTRIDE_MOD=" << (stride - 1) << " ";
         optionsBuilder << "-DVISCOSITY=" << viscosity << " ";
         optionsBuilder << "-DVELOCITY=" << velocity << " ";
 
@@ -140,9 +162,9 @@ private:
         cl::Event read_evt;
         CLUCheckErrorExit(
             queue.enqueueReadBuffer(map, CL_TRUE, 0, map_size(), map_values, nullptr, &read_evt),
-            "read_map"
+            READ_MAP_NAME
         );
-        events.emplace_back("read_map", read_evt);
+        events.emplace_back(READ_MAP_NAME, read_evt);
 
         // Store to file
         std::stringstream filenameBuilder;
@@ -187,9 +209,9 @@ private:
         cl::Event read_evt;
         CLUCheckErrorExit(
             queue.enqueueReadBuffer(f, CL_TRUE, 0, f_size(), f_values, nullptr, &read_evt),
-            "read_f"
+            READ_F_NAME
         );
-        events.emplace_back("read_f", read_evt);
+        events.emplace_back(READ_F_NAME, read_evt);
 
 
         // Store to file
@@ -244,15 +266,15 @@ private:
     
         CLUCheckErrorExit(
             queue.enqueueReadBuffer(rho, CL_TRUE, 0, rho_size(), rho_values, nullptr, &read_rho_evt),
-            "read_rho"
+            READ_RHO_NAME
         );
-        events.emplace_back("read_rho", read_rho_evt);
+        events.emplace_back(READ_RHO_NAME, read_rho_evt);
 
         CLUCheckErrorExit(
             queue.enqueueReadBuffer(u, CL_TRUE, 0, u_size(), u_values, nullptr, &read_u_evt),
-            "read_u"
+            READ_U_NAME
         );
-        events.emplace_back("read_u", read_u_evt);
+        events.emplace_back(READ_U_NAME, read_u_evt);
 
 
         // Store to file
@@ -291,9 +313,9 @@ private:
             for (size_t y = from; y < (to); ++y) {
                 for (size_t x = from; x < (to); ++x) {
                     const size_t id = IDxyzDIM(x, y, z, dim);
-                    const T val_x = u_values[IDux(id)];
-                    const T val_y = u_values[IDuy(id)];
-                    const T val_z = u_values[IDuz(id)];
+                    const T val_x = u_values[IDuxDIM(id, dim)];
+                    const T val_y = u_values[IDuyDIM(id, dim)];
+                    const T val_z = u_values[IDuzDIM(id, dim)];
                     vtk << std::scientific << std::setprecision(VTK_PRECISION) << val_x << " "
                         << std::scientific << std::setprecision(VTK_PRECISION) << val_y << " "
                         << std::scientific << std::setprecision(VTK_PRECISION) << val_z << " ";
@@ -312,18 +334,6 @@ private:
     }
 
 
-    void processData(const cl::Kernel & compute)
-    {
-        cl::Event compute_evt;
-
-        CLUCheckErrorExit(
-            queue.enqueueNDRangeKernel(compute, cl::NullRange, gws, lws, nullptr, &compute_evt),
-            "compute"
-        );
-        events.emplace_back("compute", compute_evt);
-    }
-
-
 public:
     LBMCL(size_t dim,
           T viscosity,
@@ -331,7 +341,9 @@ public:
           size_t iterations,
           size_t every,
           std::string vtk_path = "",
-          size_t work_group_size = 32,
+          size_t lwx = 1,
+          size_t lwy = 1,
+          size_t lwz = 1,
           size_t stride = 32,
           bool optimize = true,
           std::string dump_path = "",
@@ -343,7 +355,6 @@ public:
           iterations(iterations),
           every(every),
           vtk_path(vtk_path),
-          gws(dim, dim, dim),
           stride(stride),
           optimize(optimize),
           dump_path(dump_path),
@@ -352,21 +363,33 @@ public:
     {
         dump_data = (every != 0);
 
-        if (work_group_size > dim) {
-            lws = cl::NDRange(dim, 1, 1);
-            std::cout << "work_group_size is set to " << dim << std::endl;
+        if (!is_power_of_two(dim)) {
+            this->dim = previous_power_of_two(dim);
+            std::cout << "dim is rounded to the previous power of 2: " << this->dim << std::endl;
         }
 
-        if (!is_power_of_two(stride)) {
-            stride = most_significant_bit(stride);
-            std::cout << "stride is rounded to the previous power of 2: " << stride << std::endl;
+        this->gws = cl::NDRange(this->dim, this->dim, this->dim);
+
+        if (lwx == 0) lwx = 1;
+        if (lwy == 0) lwy = 1;
+        if (lwz == 0) lwz = 1;
+
+        if ((lwx * lwy * lwz) > (this->dim * this->dim * this->dim)) {
+            std::cerr << "Please enter a good work_group_size to run the simulation" << std::endl;
+            exit(-1);
+        }
+
+        this->lws = cl::NDRange(lwx, lwy, lwz);
+
+        if (!is_power_of_two(this->stride)) {
+            this->stride = previous_power_of_two(this->stride);
+            std::cout << "stride is rounded to the previous power of 2: " << this->stride << std::endl;
         }
     }
 
-    // Create all objects needed to perform the simulation, excluding host
-    // buffers.
-    // To initialize the simulation see initialize() function.
-    void setupDevice(int platformID, int deviceID)
+
+    // Create all objects needed to perform the simulation.
+    void setupSimulation(int platformID, int deviceID)
     {
         CLUSelectPlatform(platform, platformID);
         CLUSelectDevice(device, platform, deviceID);
@@ -376,16 +399,6 @@ public:
         CLUBuildProgram(program, context, device, "kernels.cl", kernelOptionsStr());
 
         cl_int err;
-
-        // Kernels
-        initialize_kernel = cl::Kernel(program, "initialize", &err);
-        CLUCheckErrorExit(err, "cl::Kernel(initialize)");
-
-        compute_kernel = cl::Kernel(program, "compute", &err);
-        CLUCheckErrorExit(err, "cl::Kernel(compute)");
-
-        compute_swap_kernel = cl::Kernel(program, "compute", &err);
-        CLUCheckErrorExit(err, "cl::Kernel(compute_swap)");
 
         // Buffers
         f_stream = cl::Buffer(context, CL_MEM_READ_WRITE | (dump_f ? 0 : CL_MEM_HOST_NO_ACCESS), f_size(), nullptr, &err);
@@ -403,41 +416,55 @@ public:
         map = cl::Buffer(context, CL_MEM_READ_WRITE | (dump_map ? 0 : CL_MEM_HOST_NO_ACCESS), map_size(), nullptr, &err);
         CLUCheckErrorExit(err, "cl::Buffer(map)");
 
+
+        // Kernels
+        initialize_kernel = cl::Kernel(program, INITIALIZE_KERNEL_NAME, &err);
+        CLUCheckErrorExit(err, "cl::Kernel(initialize)");
+
+        // Set arguments to initialize kernel
         try {
-            // Set arguments to initialize kernel
             initialize_kernel.setArg(0, f_stream);
             initialize_kernel.setArg(1, f_collide);
             initialize_kernel.setArg(2, rho);
             initialize_kernel.setArg(3, u);
             initialize_kernel.setArg(4, map);
-            // Set arguments to compute kernel
-            compute_kernel.setArg(0, f_stream);
-            compute_kernel.setArg(1, f_collide);
-            compute_kernel.setArg(2, rho);
-            compute_kernel.setArg(3, u);
-            compute_kernel.setArg(4, map);
-            // Set arguments to compute kernel
-            compute_swap_kernel.setArg(0, f_collide);
-            compute_swap_kernel.setArg(1, f_stream);
-            compute_swap_kernel.setArg(2, rho);
-            compute_swap_kernel.setArg(3, u);
-            compute_swap_kernel.setArg(4, map);
-            
         } catch (cl::Error err) {
             CLUErrorPrintExit(err);
         }
-    }
 
-    // Initialize host and device buffers
-    void initialize()
-    {
-        // Call initialize kernel to setup the simulation
-        cl::Event init_evt;
-        CLUCheckErrorExit(
-            queue.enqueueNDRangeKernel(initialize_kernel, cl::NullRange, gws, lws, nullptr, &init_evt),
-            "initialize"
-        );
-        events.emplace_back("initialize", init_evt);
+        for (size_t iteration = 1; iteration <= iterations; ++iteration) {
+            const int is_store_data = (dump_data && (iteration != 0) && (iteration % every == 0)) ? 1 : 0;
+            const bool is_swap = (iteration % 2 == 0);
+
+            cl::Kernel compute_kernel = cl::Kernel(program, COMPUTE_KERNEL_NAME, &err);
+            CLUCheckErrorExit(err, "cl::Kernel(compute)");
+
+            // size_t wgs = compute_kernel.getWorkGroupInfo<CL_KERNEL_WORK_GROUP_SIZE>(device);
+            // std::cout << "CL_KERNEL_WORK_GROUP_SIZE: " << wgs << std::endl;
+
+            // cl_ulong lms = compute_kernel.getWorkGroupInfo<CL_KERNEL_LOCAL_MEM_SIZE>(device);
+            // std::cout << "CL_KERNEL_LOCAL_MEM_SIZE: " << lms << std::endl;
+
+            // cl_ulong pms = compute_kernel.getWorkGroupInfo<CL_KERNEL_PRIVATE_MEM_SIZE>(device);
+            // std::cout << "CL_KERNEL_PRIVATE_MEM_SIZE: " << pms << std::endl;
+
+            // size_t pwgsm = compute_kernel.getWorkGroupInfo<CL_KERNEL_PREFERRED_WORK_GROUP_SIZE_MULTIPLE>(device);
+            // std::cout << "CL_KERNEL_PREFERRED_WORK_GROUP_SIZE_MULTIPLE: " << pwgsm << std::endl;
+
+            // Set arguments to compute kernel
+            try {
+                compute_kernel.setArg(0, (is_swap ? f_collide : f_stream ));
+                compute_kernel.setArg(1, (is_swap ? f_stream :  f_collide));
+                compute_kernel.setArg(2, rho);
+                compute_kernel.setArg(3, u);
+                compute_kernel.setArg(4, map);
+                compute_kernel.setArg(5, is_store_data);
+            } catch (cl::Error err) {
+                CLUErrorPrintExit(err);
+            }
+
+            compute_kernels.push_back(compute_kernel);
+        }
 
         // Allocate memory for output and dumps if needed
         if (map_values == nullptr && dump_map) {
@@ -462,21 +489,33 @@ public:
     // the completion of the simulation.
     void performSimulation()
     {
+        // Initialize the simulation
+        cl::Event init_evt;
+        CLUCheckErrorExit(
+            queue.enqueueNDRangeKernel(initialize_kernel, cl::NullRange, gws, lws, nullptr, &init_evt),
+            INITIALIZE_KERNEL_NAME
+        );
+        events.emplace_back(INITIALIZE_KERNEL_NAME, init_evt);
+
+        // Dump data if needed
         if (dump_map) storeMap();
         if (dump_data) storeData(0);
         if (dump_f) storeF(f_collide, 0);
 
-        for (size_t iteration = 1; iteration <= iterations; ++iteration) {
-            const bool is_swap = (iteration % 2 == 0);
+        for (size_t it = 1; it <= iterations; ++it) {
+            cl::Event compute_evt;
+            CLUCheckErrorExit(
+                queue.enqueueNDRangeKernel(compute_kernels[it - 1], cl::NullRange, gws, lws, nullptr, &compute_evt),
+                COMPUTE_KERNEL_NAME
+            );
+            events.emplace_back(COMPUTE_KERNEL_NAME, compute_evt);
 
-            processData((is_swap ? compute_swap_kernel : compute_kernel));
-
-            if (dump_data && (iteration != 0) && (iteration % every == 0)) {
-                storeData(iteration);
+            if (dump_data && (it != 0) && (it % every == 0)) {
+                storeData(it);
             }
 
             if (dump_f) {
-                storeF((is_swap ? f_stream : f_collide), iteration);
+                storeF(((it % 2 == 0) ? f_stream : f_collide), it);
             }
         }
     }
@@ -525,8 +564,10 @@ public:
         waitCompletion();
 
         double totalTime = 0.0;
-        for (std::pair<std::string, cl::Event> & p : events) {
-            totalTime += CLUEventsGetTime(p.second, p.second);
+        for (const std::pair<std::string, cl::Event> & p : events) {
+            if (p.first == COMPUTE_KERNEL_NAME){
+                totalTime += CLUEventsGetTime(p.second, p.second);
+            }
         }
 
         return totalTime;
@@ -543,7 +584,7 @@ public:
         std::vector< std::pair<std::string, double> > timings;
         timings.reserve(events.size());
 
-        for (std::pair<std::string, cl::Event> & p : events) {
+        for (const std::pair<std::string, cl::Event> & p : events) {
             const std::string name = p.first;
             const double time = CLUEventsGetTime(p.second, p.second);
             timings.emplace_back(name, time);
@@ -584,23 +625,23 @@ public:
         const std::string prec = (std::is_same<T, float>::value ? "single" : "double");
         const std::string dev_name = device.getInfo<CL_DEVICE_NAME>();
         std::cout << std::boolalpha
-                  << "kernel options   = " << kernelOptionsStr()     << "\n"
-                  << "device           = " << dev_name               << "\n"
-                  << "dim              = " << dim                    << "\n"
-                  << "viscosity        = " << viscosity              << "\n"
-                  << "velocity         = " << velocity               << "\n"
-                  << "Device Mem. (B)  = " << device_memory_size_b() << "\n"
-                  << "Device Mem. (KB) = " << device_memory_size_k() << "\n"
-                  << "Device Mem. (MB) = " << device_memory_size_m() << "\n"
-                  << "iterations       = " << iterations             << "\n"
-                  << "work_group_size  = " << lws[0]                 << "\n"
-                  << "stride           = " << stride                 << "\n"
-                  << "precision        = " << prec                   << "\n"
-                  << "optimize         = " << optimize               << "\n"
-                  << "every            = " << every                  << "\n"
-                  << "VTK PATH         = " << vtk_path               << "\n"
-                  << "DUMP F           = " << dump_f                 << "\n"
-                  << "DUMP MAP         = " << dump_map               << "\n";
+                  << "kernel options   = " << kernelOptionsStr()                          << "\n"
+                  << "device           = " << dev_name                                    << "\n"
+                  << "dim              = " << dim                                         << "\n"
+                  << "viscosity        = " << viscosity                                   << "\n"
+                  << "velocity         = " << velocity                                    << "\n"
+                  << "Device Mem. (B)  = " << device_memory_size_b()                      << "\n"
+                  << "Device Mem. (KB) = " << device_memory_size_k()                      << "\n"
+                  << "Device Mem. (MB) = " << device_memory_size_m()                      << "\n"
+                  << "iterations       = " << iterations                                  << "\n"
+                  << "work_group_size  = (" << lws[0] << ", " << lws[1] << ", " << lws[2] << ")\n"
+                  << "stride           = " << stride                                      << "\n"
+                  << "precision        = " << prec                                        << "\n"
+                  << "optimize         = " << optimize                                    << "\n"
+                  << "every            = " << every                                       << "\n"
+                  << "VTK PATH         = " << vtk_path                                    << "\n"
+                  << "DUMP F           = " << dump_f                                      << "\n"
+                  << "DUMP MAP         = " << dump_map                                    << "\n";
     }
 
 
@@ -610,18 +651,20 @@ public:
         const std::string dev_name = device.getInfo<CL_DEVICE_NAME>();
 
         std::stringstream stat;
-        stat << dev_name.c_str() << separator
-             << prec             << separator
-             << dim              << separator
-             << iterations       << separator
-             << every            << separator
-             << lws[0]           << separator
-             << stride           << separator
-             << optimize         << separator
-             << totalTimeMS()    << separator
-             << kernelsTimeMS()  << separator
-             << MLUPS()          << separator
-             << kernelsMLUPS()   << "\n";
+        stat << dev_name.c_str()                            << separator
+             << prec                                        << separator
+             << dim                                         << separator
+             << iterations                                  << separator
+             << every                                       << separator
+             << std::setw(3) << std::setfill('0') << lws[0] << ","
+             << std::setw(3) << std::setfill('0') << lws[1] << ","
+             << std::setw(3) << std::setfill('0') << lws[2] << separator
+             << stride                                      << separator
+             << optimize                                    << separator
+             << totalTimeMS()                               << separator
+             << kernelsTimeMS()                             << separator
+             << MLUPS()                                     << separator
+             << kernelsMLUPS()                              << "\n";
         return stat.str();
     }
 

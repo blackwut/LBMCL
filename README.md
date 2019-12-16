@@ -4,7 +4,7 @@ Lattice Boltzmann Method 3D (LBM D3Q19) computing Lid Driven Cavity Problem (LDC
 ## Dependencies
 - Compiler compatible with C++11 
 - OpenCL 1.2
-- Python >=3.7 (to verify data)
+- Python >=3.7 (data validation)
   - numpy
   - scipy
   - scikit-learn
@@ -12,7 +12,7 @@ Lattice Boltzmann Method 3D (LBM D3Q19) computing Lid Driven Cavity Problem (LDC
   - pyvista
 
 ## Python Setup
-To verify data produced, Python >=3.7 and some packages are required. It is recommended to use a Virtual  Environment as following:
+Python >=3.7 and some packages are required to validate data produced. It is recommended to use a Virtual  Environment as follows:
 ```bash
 # Create an environment
 cd /PATH_TO_LBMCL/LBMCL
@@ -40,7 +40,7 @@ VISCOSITY  = 0.0089     # viscosity of the fluid
 VELOCITY   = 0.05       # velocity of the moving wall
 ITERATIONS = 10         # number of iterations
 EVERY      = 1          # number of iterations to skip between two outputs
-LWS        = 8          # work group size to use for kernel execution
+LWS        = 8,8,8      # work group size to use for kernel execution
 STRIDE     = 8          # stride used in the CSoA memory layout
 PRECISION  = single     # floating point precision: single or double
 OPTIMIZE   = true       # use OpenCL optimization flags
@@ -49,7 +49,7 @@ DUMP_MAP   = false      # dump the map of the simulation
 DUMP_F     = false      # dump the f at each simulation step
 ```
 
-The makefile provides some targets to compile and test the simulation:
+The Makefile provides some targets to compile and test the simulation:
 ```bash
 # Compile
 make
